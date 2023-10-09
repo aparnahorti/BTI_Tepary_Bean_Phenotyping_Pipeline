@@ -1,1 +1,1 @@
-# BTI_Tepary_Bean_Phenotyping_Pipeline_Julkowska_Lab
+# BTI_Tepary_Bean_Phenotyping_Pipeline

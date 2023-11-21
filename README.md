@@ -1,1 +1,0 @@
-# BTI_Tepary_Bean_Phenotyping_Pipeline

@@ -1,0 +1,3243 @@
+---
+title: "Data Analysis of Tepary Beans natural diversity panel- Screening to drought stress using phenocage"
+author: "Aparna Srinivasan"
+date: "2023-07-10"
+output:
+  html_document:
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(rmarkdown)
+```
+Tepary bean natural diversity panel is screened for early vegetative drought stress.Treatment comprises of 60% FC (Control) and 10% FC (Drought). After 14 days of sowing, plants were images (8 days) every other day throughout the experimental period. Imaging was carried out in a Raspberry pi camera. Photosynthetic measurements were measured using PhotosynQ on 13 and 16 day after sowing. Evapotranspiration measurements were measured using Arduino setup, which automatically weighs and water based on the stored reference weights.
+
+###########################   Load Packages #########################
+
+```{r Load Packages, echo=TRUE, warning=FALSE}
+# Load Libraries
+library(ggplot2)
+library(ggpubr)
+library(reshape2)
+library(dplyr)
+library(tidyr)
+library(plotly)
+library(readxl)
+library(tinytex)
+library(ggthemes)
+library(wesanderson)
+library(tidyverse)
+library(ggsci)
+library(ggsignif)
+library(doBy)
+require(styler)
+library(GGally)
+library(cowplot)
+library(ggforce)
+library(see)
+
+########################### Suppress Warning Message #######################
+
+suppressWarnings({
+  library(ggplot2)
+  library(ggpubr)
+  library(reshape2)
+  library(dplyr)
+  library(tidyr)
+  library(plotly)
+  library(readxl)
+  library(tinytex)
+  library(ggthemes)
+  library(wesanderson)
+  library(tidyverse)
+  library(tibble)
+  library(readr)
+  library(purrr)
+  library(stringr)
+  library(forcats)
+  library(lubridate)
+  library(ggsci)
+  library(ggsignif)
+  library(doBy)
+  library(GGally)
+})
+```
+
+.............................................Set working directory..............................................................
+```{r Set working directory}
+getwd()
+setwd("C:/Users/Aparna/Desktop/ImageResults")
+```
+..................................Combine all the image results file from Ex 1 to Ex8 .................................................
+
+```{r Combine all final Ex csv files}
+img_final_Ex1 <- read.csv("C:/Users/Aparna/Desktop/ImageResults/final_Ex1.csv")
+img_final_Ex2 <- read.csv("C:/Users/Aparna/Desktop/ImageResults/final_Ex2.csv")
+img_final_Ex3 <- read.csv("C:/Users/Aparna/Desktop/ImageResults/final_Ex3.csv")
+img_final_Ex4 <- read.csv("C:/Users/Aparna/Desktop/ImageResults/final_Ex4.csv")
+img_final_Ex5 <- read.csv("C:/Users/Aparna/Desktop/ImageResults/final_Ex5.csv")
+img_final_Ex6 <- read.csv("C:/Users/Aparna/Desktop/ImageResults/final_Ex6.csv")
+img_final_Ex7 <- read.csv("C:/Users/Aparna/Desktop/ImageResults/final_Ex7.csv")
+img_final_Ex8 <- read.csv("C:/Users/Aparna/Desktop/ImageResults/final_Ex8.csv")
+```
+
+
+..................................Combine data frames using rbind and store the result in 'analyse'............................................
+
+```{r Bind all final Ex csv files together and saved as analyse}
+analyse <- rbind(img_final_Ex1, img_final_Ex2, img_final_Ex3, img_final_Ex4, img_final_Ex5, img_final_Ex6, img_final_Ex7, img_final_Ex8)
+
+analyse$sid <- paste(analyse$Ex, analyse$sid, sep = "_") # Create a new column 'sid' by pasting together 'Ex' and 'sid' columns with '_' separator
+```
+
+```{r For removing X from table}
+# Remove row names
+row.names(analyse) <- NULL
+
+# Remove the "X" column if it exists
+if ("X" %in% colnames(analyse)) {
+  analyse <- analyse[, -which(colnames(analyse) == "X")]
+}
+
+```
+
+..................................       Plot leaf area per Accession      .........................................
+
+
+```{r}
+# Using ggplot create object 'la_gen' using the 'analyse' data frame
+# Mapping 'days' to the x-axis and 'Area.sum' to the y-axis
+la_gen <- ggplot(data = analyse, aes(x = days, y = Area.sum)) +
+
+  # Add a line geometry with transparency (alpha), size, and grouping by 'sid'
+  geom_line(alpha = 0.3, size = 0.8, aes(group = sid)) +
+
+  # Create facets (small multiples) based on the 'Treatment' variable with 3 columns
+  facet_wrap(~Treatment, ncol = 3) +
+
+  # Add a y-axis label
+  ylab("Average Leaf area across each Accession") +
+
+  # Apply a black-and-white theme
+  theme_bw()
+
+# Plot the 'la_gen' ggplot object
+plot(la_gen)
+
+######## This is the code for setting the aspect ratio using coord_fixed()#######
+# la_gen_aspect_ratio <- la_gen + coord_fixed(ratio = 1)
+#
+# # Convert to plotly object
+# la_gen_plotly <- ggplotly(la_gen_aspect_ratio)
+#
+# # Display the plot
+# la_gen_plotly
+```
+
+
+```{r}
+# Create a vector 'days' containing values from 0 to 14
+days <- 0:14
+
+# Subset the 'analyse' data frame to select rows where 'sid' matches the first unique 'sid'
+temp <- subset(analyse, analyse$sid == unique(analyse$sid)[1])
+
+# Convert the 'days' column in 'temp' from a factor to numeric
+temp$days <- as.numeric(as.character(temp$days))
+
+# Display the 'days' column from the 'temp' data frame
+temp$days
+```
+```{r Access and display the values in the Area.sum column of the temp data frame}
+# Check 'Area.sum' column from the 'temp' data frame
+temp$Area.sum
+```
+```{r Fitting a smoothing spline, creating a scatterplot, and overlaying lines on the plot to represent the spline }
+# Fit a cubic smoothing spline to the 'days' and 'Area.sum' data in the 'temp' data frame
+plot.spl <- with(temp, smooth.spline(days, Area.sum, df = 4))
+
+# Create a scatterplot of 'Area.sum' against 'days' using data from 'temp'
+plot(Area.sum ~ days, data = temp)
+
+# Add a blue line to the plot based on the cubic smoothing spline ('plot.spl')
+lines(plot.spl, col = "blue")
+
+# Add a red line to the plot by predicting values using the cubic smoothing spline ('plot.spl')
+lines(predict(plot.spl, days), col = "red")
+```
+```{r}
+# Define a vector 'names' containing column names
+names <- c(text = "ID", "Accession", "Treatment", "day", "Area.SUM")
+
+# Create an empty data frame 'spline_data' to store the data
+spline_data <- data.frame()
+
+# Loop through each element 'k' in the 'names' vector
+for (k in names) {
+  # Create a new column in 'spline_data' with the name specified by 'k' and initialize it as character type
+  spline_data[[k]] <- as.character()
+}
+
+spline_data
+```
+```{r  Using the predict function to generate predictions based on the cubic smoothing spline plot.spl and then displaying the results stored in the pred_temp variable}
+# Generate predictions using the previously fitted cubic smoothing spline 'plot.spl'
+pred_temp <- predict(plot.spl, days)
+
+# Display the predictions stored in 'pred_temp'
+pred_temp
+```
+
+
+```{r Updating specific columns in the spline_data data frame with values from pred_temp and temp variables and displaying the resulting data frame}
+# Update the first 15 rows of the 'spline_data' data frame, setting the 4th column to 'pred_temp$x'
+spline_data[1:15, 4] <- pred_temp$x
+
+# Update the first 15 rows of the 'spline_data' data frame, setting the 5th column to 'pred_temp$y'
+spline_data[1:15, 5] <- pred_temp$y
+
+# Update the first 15 rows of the 'spline_data' data frame, setting the 1st column to 'temp$sid[1]'
+spline_data[1:15, 1] <- temp$sid[1]
+
+# Update the first 15 rows of the 'spline_data' data frame, setting the 2nd column to 'temp$Accession[1]'
+spline_data[1:15, 2] <- temp$Accession[1]
+
+# Update the first 15 rows of the 'spline_data' data frame, setting the 3rd column to 'temp$Treatment[1]'
+spline_data[1:15, 3] <- temp$Treatment[1]
+
+spline_data
+```
+
+
+```{r}
+# Create a copy of 'spline_data' and store it in 'final_spline'
+final_spline <- spline_data
+
+# Get unique 'sid' values from the 'analyse' data frame and calculate their count
+all_plants <- unique(analyse$sid)
+rownames(all_plants) <- NULL
+length(all_plants)
+
+```
+
+
+```{r Looping through data, fitting smoothing splines, updating data frames, and the final result}
+# Loop through 'all_plants' starting from the second element (index 2) to the 586th element
+for (i in 2:586) {
+  # Subset 'temp' data frame for the current 'sid'
+  temp <- subset(analyse, analyse$sid == all_plants[i])
+
+  # Check if 'temp' has more than 4 rows
+  if (dim(temp)[1] > 4) {
+    # Fit a cubic smoothing spline to 'days' and 'Area.sum' in 'temp'
+    plot.spl <- with(temp, smooth.spline(days, Area.sum, df = 4))
+
+    # Generate predictions using the smoothing spline
+    pred_temp <- predict(plot.spl, days)
+
+    # Update specific columns in 'spline_data' with 'pred_temp' and 'temp' values
+    spline_data[1:15, 4] <- pred_temp$x
+    spline_data[1:15, 5] <- pred_temp$y
+    spline_data[1:15, 1] <- temp$sid[1]
+    spline_data[1:15, 2] <- temp$Accession[1]
+    spline_data[1:15, 3] <- temp$Treatment[1]
+
+    # Append 'spline_data' to 'final_spline'
+    final_spline <- rbind(final_spline, spline_data)
+  } else {
+    # Set specific columns in 'spline_data' when 'temp' has <= 4 rows
+    spline_data[1:15, 4] <- days
+    spline_data[1:15, 5] <- 0
+    spline_data[1:15, 1] <- temp$sid[1]
+    spline_data[1:15, 2] <- temp$Accession[1]
+    spline_data[1:15, 3] <- temp$Treatment[1]
+  }
+}
+
+final_spline
+```
+
+
+```{r Conversion of columns to numeric types, filtering the data frame based on a condition, and calculating the count of unique ID values in the filtered data}
+# Convert the 'day' column in 'final_spline' to numeric type
+final_spline$day <- as.numeric(as.character(final_spline$day))
+
+# Convert the 'Area.SUM' column in 'final_spline' to numeric type
+final_spline$Area.SUM <- as.numeric(as.character(final_spline$Area.SUM))
+
+# Filter 'final_spline' to keep rows where 'Area.SUM' is greater than 1
+final_spline <- final_spline[final_spline$Area.SUM > 1, ]
+
+# Calculate the count of unique 'ID' values in the filtered 'final_spline'
+length(unique(final_spline$ID))
+```
+................................. Plot for Growth rate from 7 side view images..................................................
+
+```{r 1.Growth plot with spline fitted data}
+# Convert 'Area.SUM' column to numeric type
+final_spline$Area.SUM <- as.numeric(as.character(final_spline$Area.SUM))
+
+# Convert 'day' column to a factor with numeric levels
+final_spline$day <- as.factor(as.numeric(as.character(final_spline$day)))
+
+# Create a line graph (Area_lgraph) using ggplot2
+Area_lgraph <- ggplot(data = final_spline, aes(x = day, y = Area.SUM, group = ID, color = Treatment)) +
+
+  # Add translucent lines connecting data points
+  geom_line(alpha = 0.1) +
+
+  # Add a ribbon indicating the mean ± SE of the data
+  stat_summary(fun.data = mean_se, geom = "ribbon", linetype = 0, aes(group = Treatment), alpha = 0.3) +
+
+  # Add dashed lines representing the mean of the data
+  stat_summary(fun = mean, aes(group = Treatment), size = 0.7, geom = "line", linetype = "dashed") +
+
+  # Add p-values for pairwise comparisons between 'Treatment' groups
+  stat_compare_means(aes(group = Treatment), label = "p.signif", method = "t.test", hide.ns = TRUE) +
+
+  # Set labels for the x and y axes
+  labs(x = "Days After Stress", y = "Shoot Size (7 x SV pixels)") +
+
+  # Customize the color scale
+  scale_color_d3("category10") +
+
+  # Adjust the legend position to the bottom
+  theme(legend.position = "bottom")
+
+print(Area_lgraph)
+```
+
+### Now we got some spline fitted data - we can try and calculate growth rate that is moving throughout the experiment - to assess how the plant growth dynamics is changing ###
+
+First - let’s isolate one plant:
+
+```{r Calculating running growth rate}
+# Convert the 'day' column in 'final_spline' to numeric type
+final_spline$day <- as.numeric(as.character(final_spline$day))
+
+# Subset the 'final_spline' data frame to select rows where 'ID' matches the first element of 'all_plants'
+temp <- subset(final_spline, final_spline$ID == all_plants[1])
+
+temp
+```
+
+#The total number of timepoints for which we will be able to extract growth rate are number of days - 2 > since we will need at least 3 timepoints for each growth rate calculation:
+```{r}
+days
+```
+
+```{r}
+# Create a vector 'growth_timeline' containing the first 13 elements of the 'days' vector
+growth_timeline <- days[1:13]
+
+# Display the 'growth_timeline' vector, which represents a subset of 'days'
+growth_timeline
+```
+
+
+#Subset first three timepoints
+```{r}
+temp_now <- subset(temp, temp$day < 3)
+temp_now
+```
+
+
+# Fitting linear growth rate to observe changes in shoot size
+```{r}
+# Create a scatterplot of 'Area.SUM' against 'day' in the 'temp_now' data frame
+plot(temp_now$Area.SUM ~ temp_now$day) +
+
+# Add a linear regression line to the scatterplot
+abline(lm(temp_now$Area.SUM ~ temp_now$day))
+```
+
+
+```{r  Fitting a linear regression model to predict Area.SUM based on day in the temp_now data frame and then displaying a summary of the model, which includes information about the model coefficients and statistical measures}
+# Create a linear regression model (model_now) to predict 'Area.SUM' based on 'day' in the 'temp_now' data frame
+model_now <- lm(temp_now$Area.SUM ~ temp_now$day)
+
+# Display a summary of the linear regression model, including coefficients and statistics
+summary(model_now)
+```
+
+
+```{r}
+# Extract the coefficient for the 'day' predictor (GR) from the 'model_now' linear regression model
+GR <- model_now$coefficients[2]
+```
+
+
+```{r Creation of column names, the setup of an empty data frame, and the initialization of columns as character types}
+# Create a vector 'names' containing column names for the 'growth_data' data frame
+names <- c(text = "ID", "genotype", "treatment", "day", "GR")
+
+# Create an empty data frame 'growth_data' to store the data
+growth_data <- data.frame()
+
+# Loop through each element 'k' in the 'names' vector
+for (k in names) {
+  # Create a new column in 'growth_data' with the name specified by 'k' and initialize it as character type
+  growth_data[[k]] <- as.character()
+}
+
+growth_data
+```
+
+
+```{r Updating specific cells in the growth_data data frame with values from the temp_now data frame and calculations}
+# Assign the 'ID' value from the first row of 'temp_now' to the first row, first column of 'growth_data'
+growth_data[1, 1] <- temp_now$ID[1]
+
+# Assign the 'Accession' value from the first row of 'temp_now' to the first row, second column of 'growth_data'
+growth_data[1, 2] <- temp_now$Accession[1]
+
+# Assign the 'Treatment' value from the first row of 'temp_now' to the first row, third column of 'growth_data'
+growth_data[1, 3] <- temp_now$Treatment[1]
+
+# Assign the minimum 'day' value from 'temp_now' to the first row, fourth column of 'growth_data'
+growth_data[1, 4] <- min(temp_now$day)
+
+# Assign the growth rate ('GR') to the first row, fifth column of 'growth_data'
+growth_data[1, 5] <- GR
+
+growth_data
+```
+
+# Loop it through all possible timepoints for this plant
+```{r}
+
+# Loop through each time point in 'growth_timeline'
+for (t in 1:length(growth_timeline)) {
+  # Define the time interval for the current time point
+  min <- t - 1
+  max <- min + 3
+
+  # Subset 'temp' data frame to select rows within the time interval
+  temp_now <- subset(temp, temp$day < max)
+  temp_now <- subset(temp_now, temp_now$day >= min)
+
+  # Fit a linear regression model to predict 'Area.SUM' based on 'day' for the current time interval
+  model_now <- lm(temp_now$Area.SUM ~ temp_now$day)
+
+  # Assign relevant information to 'growth_data' for the current time point
+  growth_data[t, 1] <- temp_now$ID[1]
+  growth_data[t, 2] <- temp_now$Accession[1]
+  growth_data[t, 3] <- temp_now$Treatment[1]
+  growth_data[t, 4] <- min(temp_now$day)
+  growth_data[t, 5] <- model_now$coefficients[2]
+}
+
+growth_data
+```
+
+##Looping for all plants within the experiment
+```{r}
+# Initialize a counter to keep track of the rows in 'growth_data'
+counter <- 1
+
+# Loop through each 'ID' in 'all_plants'
+for (r in 1:length(all_plants)) {
+  # Subset 'final_spline' to select data for the current 'ID'
+  temp <- subset(final_spline, final_spline$ID == all_plants[r])
+
+  # Check if data for the current 'ID' exists
+  if (dim(temp)[1] > 0) {
+    # Loop through each time point in 'growth_timeline'
+    for (t in 1:length(growth_timeline)) {
+      # Define the time interval for the current time point
+      min <- (t - 1)
+      max <- min + 3
+
+      # Subset 'temp' to select data within the time interval
+      temp_now <- subset(temp, temp$day < max)
+      temp_now <- subset(temp_now, temp_now$day >= min)
+
+      # Check if there are enough data points in 'temp_now' for modeling
+      if (dim(temp_now)[1] > 2) {
+        # Fit a linear regression model to predict 'Area.SUM' based on 'day'
+        model_now <- lm(temp_now$Area.SUM ~ temp_now$day)
+
+        # Populate 'growth_data' with relevant information
+        growth_data[counter, 1] <- temp_now$ID[1]
+        growth_data[counter, 2] <- temp_now$Accession[1]
+        growth_data[counter, 3] <- temp_now$Treatment[1]
+        growth_data[counter, 4] <- min(temp_now$day)
+        growth_data[counter, 5] <- model_now$coefficients[2]
+
+        # Increment the counter
+        counter <- counter + 1
+      } else {
+        # Increment the counter when there are not enough data points for modeling
+        counter <- counter + 1
+      }
+    }
+  }
+}
+
+# Display the dimensions of 'temp_now' (for the last iteration)
+dim(temp_now)
+
+growth_data
+```
+
+
+```{r}
+length(unique(growth_data$ID))
+```
+
+```{r 2. Growth rate in pix/day plot}
+# Convert GR and day columns to appropriate data types
+growth_data$GR <- as.numeric(as.character(growth_data$GR))
+growth_data$day <- as.factor(as.numeric(as.character(growth_data$day)))
+# Remove rows with NA values
+growth_data <- na.omit(growth_data)
+
+# Create the initial plot object
+Daily_GR_lgraph <- ggplot(data = growth_data, aes(x = day, y = GR, group = ID, color = treatment))
+
+# Add the lines with transparency
+Daily_GR_lgraph <- Daily_GR_lgraph + geom_line(alpha = 0.1)
+
+# Add the mean with standard error ribbons
+Daily_GR_lgraph <- Daily_GR_lgraph + stat_summary(
+  fun.data = mean_se, geom = "ribbon", linetype = 0,
+  aes(group = treatment), alpha = 0.3
+)
+
+# Add the mean lines with dashed linetype
+Daily_GR_lgraph <- Daily_GR_lgraph + stat_summary(
+  fun = mean, aes(group = treatment), size = 0.7,
+  geom = "line", linetype = "dashed"
+)
+
+# Add the statistical significance labels
+Daily_GR_lgraph <- Daily_GR_lgraph + stat_compare_means(aes(group = treatment),
+  label = "p.signif",
+  method = "t.test", hide.ns = TRUE
+)
+
+# Customize the labels and color scale
+Daily_GR_lgraph <- Daily_GR_lgraph + ylab("Growth Rate (pix / day)") +
+  xlab("Days After Stress") +
+  scale_color_d3()
+
+# Output the final plot
+Daily_GR_lgraph
+```
+```{r At what day we see difference in growth rate}
+diff_in_GR <- ggboxplot(final_spline, x = "day", y = "Area.SUM",
+              color = "Treatment", fill = "Treatment", palette =  c("#00AFBB", "#FC4E07")) +
+              stat_summary(fun = "median", geom = "line", aes(group = Treatment), linewidth = 0.1) +
+              stat_compare_means(aes(group = Treatment), method = "t.test", label = "p.signif") +
+  labs(x = "Days after stress", y = "Growth rate (pix/day)")
+
+print(diff_in_GR)
+```
+
+
+```{r Calculating overall growth rate}
+# Convert the 'day' column in 'final_spline' to numeric
+final_spline$day <- as.numeric(as.character(final_spline$day))
+
+# Subset 'final_spline' to select rows where 'ID' matches the first element of 'all_plants'
+temp <- subset(final_spline, final_spline$ID == all_plants[1])
+
+temp
+```
+
+
+```{r}
+# Create a scatterplot of 'Area.SUM' against 'day' in the 'temp' data frame
+plot(temp$Area.SUM ~ temp$day) +
+
+  # Linear regression line is added to the scatterplot using the lm() function
+  abline(lm(temp$Area.SUM ~ temp$day))
+```
+
+
+```{r}
+# Fit a linear regression model to predict 'Area.SUM' based on 'day' in the 'temp' data frame
+model <- lm(temp$Area.SUM ~ temp$day)
+
+# Extract the growth rate (GR) coefficient from the linear regression model
+GR <- model$coefficients[2]
+
+# Calculate the coefficient of determination (R-squared) for the model
+R2 <- summary(model)$r.squared
+```
+
+
+```{r}
+# Define vector 'names' containing column names for the 'growth_data' data frame
+names <- c(text = "ID", "Accession", "Treatment", "GR", "R2")
+
+# Create an empty data frame 'growth_data' to store growth-related data
+growth_data <- data.frame()
+
+# Loop through each element 'k' in the 'names' vector
+for (k in names) {
+  # Create a new column in 'growth_data' with the name specified by 'k' and set as character type
+  growth_data[[k]] <- as.character()
+}
+
+growth_data
+```
+
+
+```{r}
+# Assign the 'ID' value from the 'temp' data frame to the first row, first column of 'growth_data'
+growth_data[1, 1] <- temp$ID[1]
+
+# Assign the 'Accession' value from the 'temp' data frame to the first row, second column of 'growth_data'
+growth_data[1, 2] <- temp$Accession[1]
+
+# Assign the 'Treatment' value from the 'temp' data frame to the first row, third column of 'growth_data'
+growth_data[1, 3] <- temp$Treatment[1]
+
+# Assign the growth rate (GR) to the first row, fourth column of 'growth_data'
+growth_data[1, 4] <- GR
+
+# Assign the coefficient of determination (R-squared, R2) to the first row, fifth column of 'growth_data'
+growth_data[1, 5] <- R2
+
+growth_data
+```
+
+
+```{r}
+# Create vector 'all_plants' containing unique 'ID' values from 'final_spline'
+all_plants <- unique(final_spline$ID)
+
+# Loop through each unique 'ID' in 'all_plants'
+for (i in 1:length(all_plants)) {
+  # Subset 'final_spline' to select data for the current 'ID'
+  temp <- subset(final_spline, final_spline$ID == all_plants[i])
+
+  # Fit a linear regression model to predict 'Area.SUM' based on 'day'
+  model <- lm(temp$Area.SUM ~ temp$day)
+
+  # Extract the growth rate (GR) coefficient from the linear regression model
+  GR <- model$coefficients[2]
+
+  # Calculate the coefficient of determination (R-squared, R2) for the model
+  R2 <- summary(model)$r.squared
+
+  # Populate 'growth_data' with relevant information for the current 'ID'
+  growth_data[i, 1] <- temp$ID[1]
+  growth_data[i, 2] <- temp$Accession[1]
+  growth_data[i, 3] <- temp$Treatment[1]
+  growth_data[i, 4] <- GR
+  growth_data[i, 5] <- R2
+}
+
+growth_data
+```
+
+
+```{r Distribution of accuracy for R2 cut off}
+# Convert the 'GR' and 'R2' columns in 'growth_data' to numeric
+growth_data$GR <- as.numeric(as.character(growth_data$GR))
+growth_data$R2 <- as.numeric(as.character(growth_data$R2))
+
+# Create a histogram plot using gghistogram
+# x-axis represents 'R2'; bars filled with light gray color; Add a vertical line at the mean of 'R2'; Display rug plots along the x-axis
+gghistogram(growth_data,
+  x = "R2", fill = "lightgray",
+  add = "mean", rug = TRUE
+)
+```
+
+
+```{r}
+gghistogram(growth_data,
+  x = "GR", fill = "lightgray",
+  add = "mean", rug = TRUE
+)
+```
+###  cut off R2>0.7###
+
+```{r }
+growth_data_clean <- subset(growth_data, growth_data$R2 > 0.7)
+gghistogram(growth_data_clean,
+  x = "GR", fill = "lightgray",
+  add = "mean", rug = TRUE
+)
+```
+
+
+```{r 3. Overall Growth rate Split per treatment}
+# GR_overall <- ggerrorplot(growth_data_clean, y = "GR", x = "treatment", fill="treatment", color="treatment",
+#                         desc_stat = "mean_sd", add = "jitter",
+#                         add.params = list(color = "darkgray"),
+#                         xlab="Treatment", ylab="Growth Rate (pix / day)")
+# GR_overall <- GR_overall + rremove("legend") + stat_compare_means(method="t.test", ref.group = "Control",
+#                                                               label = "p.signif", hide.ns = T)
+# GR_overall <- GR_overall + scale_color_d3()
+# GR_overall
+
+
+# Create the initial plot object with boxplot and jittered data points
+
+custom_colors <- c("lightskyblue3", "gray59")
+
+GR_overall <- ggplot(data = growth_data_clean, aes(x = Treatment, y = GR, fill = Treatment)) +
+  geom_boxplot() +
+  geom_jitter(width = 0.2, height = 0, color = "tan", alpha = 0.7) +
+  xlab("Treatment") +
+  ylab("Growth Rate (pix / day)") +
+  scale_fill_manual(values = custom_colors) + # Set custom colors
+  stat_compare_means(aes(group = Treatment),
+    method = "t.test", ref.group = "Control",
+    label = "p.signif", hide.ns = TRUE
+  ) +
+  theme(
+    legend.position = "bottom",
+    panel.background = element_rect(fill = "transparent"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.border = element_rect(color = "black", fill = NA),
+    axis.line = element_line(color = "black")
+  )
+
+GR_overall
+```
+
+
+```{r Stress tolerance index}
+# Create a new data frame 'growth_data_clean2' containing columns 2 to 4 from 'growth_data_clean'
+growth_data_clean2 <- growth_data_clean[, 2:4]
+
+# Compute a summary of 'GR' values grouped by 'Treatment' and 'Accession' using the 'summaryBy' function
+growth_sum <- summaryBy(GR ~ Treatment + Accession, data = growth_data_clean2)
+
+growth_sum
+```
+
+
+
+
+```{r}
+# Reshape the 'growth_sum' data frame using the 'dcast' function to create a new data frame 'growth_cast'
+# where 'Accession' becomes the rows, and 'Treatment' values become columns
+growth_cast <- dcast(growth_sum, Accession ~ Treatment)
+```
+
+
+
+```{r}
+# Rename the second column of 'growth_cast' to 'GR.Control'
+colnames(growth_cast)[2] <- "GR.Control"
+
+# Rename the third column of 'growth_cast' to 'GR.Drought'
+colnames(growth_cast)[3] <- "GR.Drought"
+
+# Convert 'GR.Control' and 'GR.Drought' columns to numeric type
+growth_cast$GR.Control <- as.numeric(as.character(growth_cast$GR.Control))
+growth_cast$GR.Drought <- as.numeric(as.character(growth_cast$GR.Drought))
+
+# Calculate the ratio of 'GR.Drought' to 'GR.Control' and store it in the 'GR.STI' column
+growth_cast$GR.STI <- growth_cast$GR.Drought / growth_cast$GR.Control
+
+growth_cast
+```
+
+
+
+```{r Relative growth rate}
+
+# Filter the dataset
+# filtered_growth_cast <- growth_cast %>%
+#   filter(GR.STI < 7, GR.STI >= 0)
+# 
+# # Calculate the IQR
+# Q1 <- quantile(filtered_growth_cast$GR.STI, 0.25)  # Calculate the 25th percentile (Q1)
+# Q3 <- quantile(filtered_growth_cast$GR.STI, 0.75)  # Calculate the 75th percentile (Q3)
+# IQR_value <- Q3 - Q1  # Calculate the IQR
+# 
+# # Print the IQR value
+# cat("Interquartile Range (IQR):", IQR_value, "\n")
+# 
+# # Create a boxplot with custom colors
+# RGR <- ggplot(filtered_growth_cast, aes(x = 1, y = GR.STI)) +
+#   geom_boxplot(color = "skyblue", fill = "white") +
+#   geom_jitter(color = "coral", width = 0.2) +
+#   ylab("Relative Growth Rate (Stress/Control)") +
+#   theme_minimal() +
+#   theme(axis.title.x = element_blank())
+# 
+# RGR
+
+
+
+```
+
+```{r No of Acc below 0.4}
+# Count the number of accessions with values below 0.4
+#count_below_0.32 <- nrow(filtered_growth_cast %>% filter(GR.STI < 0.32))
+
+#cat("Number of accessions below 0.32:", count_below_0.4, "\n")
+
+```
+
+```{r}
+# Count the number of accessions with values above 1
+#count_above_1 <- nrow(filtered_growth_cast %>% filter(GR.STI > 1))
+
+#cat("Number of accessions above 1:", count_above_1, "\n")
+```
+
+```{r}
+#count_below_0.8_and_equal_to_0.32 <- nrow(filtered_growth_cast %>% filter(GR.STI <0.8, GR.STI == 0.32))
+
+#cat("Number of accessions below 0.8 and equal to 0.32:", count_below_0.8_and_equal_to_0.32, "\n")
+```
+```{r}
+#count_above_0.32 <- nrow(filtered_growth_cast %>% filter(GR.STI > 0.32))
+
+#cat("Number of accessions above 0.32:", count_above_0.32, "\n")
+```
+
+
+```{r}
+# write.csv(growth_cast,"Growth rate STI.csv")
+```
+
+
+```{r gghistogram for STI}
+gghistogram(growth_cast,
+  x = "GR.STI", fill = "lightgray",
+  add = "mean", rug = TRUE
+)
+```
+
+
+################################################ Load all files of fresh weight from Ex.1 to Ex.8 ###################################################
+
+```{r Load all FWDWWC excel file}
+FW1 <- read_xlsx("C:/Users/Aparna/Desktop/ImageResults/FWDWWC_1.xlsx")
+FW2 <- read_xlsx("C:/Users/Aparna/Desktop/ImageResults/FWDWWC_2.xlsx")
+FW3 <- read_xlsx("C:/Users/Aparna/Desktop/ImageResults/FWDWWC_3.xlsx")
+FW4 <- read_xlsx("C:/Users/Aparna/Desktop/ImageResults/FWDWWC_4.xlsx")
+FW5 <- read_xlsx("C:/Users/Aparna/Desktop/ImageResults/FWDWWC_5.xlsx")
+FW6 <- read_xlsx("C:/Users/Aparna/Desktop/ImageResults/FWDWWC_6.xlsx")
+FW7 <- read_xlsx("C:/Users/Aparna/Desktop/ImageResults/FWDWWC_7.xlsx")
+FW8 <- read_xlsx("C:/Users/Aparna/Desktop/ImageResults/FWDWWC_8.xlsx")
+```
+####### Combine all fresh weight files and write as csv file #############
+
+```{r Bind fresh weight excel files together and saved as FW}
+FW <- rbind(FW1, FW2, FW3, FW4, FW5, FW6, FW7, FW8)
+write.csv(FW, "FW.csv")
+```
+
+```{r}
+# Create a subset of the 'final_spline' data frame to select rows where 'day' is equal to 14
+last_day <- subset(final_spline, final_spline$day == 14)
+```
+
+```{r}
+# Rename second column of 'last_day' to "Accession"
+colnames(last_day)[2] <- "Accession"
+
+# Rename third column of 'last_day' to "Treatment"
+colnames(last_day)[3] <- "Treatment"
+
+# Rename fourth column of 'last_day' to "Day"
+colnames(last_day)[4] <- "Day"
+```
+
+```{r}
+# FW$ID <- paste0(FW$Accession, "_", substr(FW$Treatment, 1, 1))
+# Create a new column 'ID' in the 'FW' data frame by concatenating values from other columns
+# 'ID' is formed by combining 'Ex,' 'Accession,' and the first character of 'Treatment'
+
+FW$ID <- paste0(FW$Ex, "_", FW$Accession, "_", substr(FW$Treatment, 1, 1))
+```
+
+```{r}
+# Merge the 'last_day' and 'FW' data frames by common columns 'ID,' 'Accession,' and 'Treatment'
+# Include all rows from 'last_day' (left) and 'FW' (right), filling missing values with NA
+
+FW_lastday <- merge(last_day, FW, by = c("ID", "Accession", "Treatment"), all.x = TRUE, all.y = TRUE)
+```
+
+
+```{r}
+# Create a subset of 'FW_lastday' data frame to select rows where 'ID' matches those in 'growth_data_clean'
+
+clean_FW <- subset(FW_lastday, FW_lastday$ID %in% growth_data_clean$ID)
+
+clean_FW
+```
+
+```{r}
+clean_FW$FW <- as.numeric(as.character(clean_FW$FW))
+clean_FW$DW <- as.numeric(as.character(clean_FW$DW))
+clean_FW$WC <- as.numeric(as.character(clean_FW$WC))
+```
+
+
+```{r}
+write.csv(clean_FW, "clean_FW.csv")
+```
+
+
+```{r Pearson correlation between projected shoot area and fresh weight of shoot recorded at the last day of experiment}
+custom_colors <- c("lightskyblue3", "grey59")
+
+FW_Area <- ggscatter(clean_FW, x = "FW", y = "Area.SUM", xlab = "Shoot fresh weight at 14th day (g)", ylab = "Projected shoot area (pixels)", color = "Treatment", rug = TRUE) +
+  stat_cor() +
+  scale_color_manual(values = custom_colors) +
+  theme_minimal() # Set custom colors
+FW_Area
+```
+
+
+```{r Pearson correlation between projected shoot area and dry weight of shoot recorded at the last day of experiment}
+DW_Area <- ggscatter(clean_FW, x = "Area.SUM", y = "DW", color = "Treatment", rug = TRUE) +
+  stat_cor() +
+  scale_color_nejm()
+DW_Area
+```
+
+
+```{r Pearson correlation between projected shoot area and water content (g)}
+WC_Area <- ggscatter(clean_FW, x = "Area.SUM", y = "WC", color = "Treatment", rug = TRUE) +
+  stat_cor() +
+  scale_color_nejm()
+WC_Area
+```
+
+################################################################# PQ Analysis #########################################################
+```{r PQ Data}
+PSQ_all <- list.files(pattern = "PQ")
+PSQ_all
+```
+
+
+
+############################################################### PQ Ex1 ##############################################################
+
+
+```{r PQ1}
+PSQ1 <- read.csv(PSQ_all[1])
+colnames(PSQ1)
+```
+
+```{r}
+PSQ1 <- PSQ1 %>%
+  rename(
+    AmbientHumidity = "Ambient.Humidity",
+    FvP = "FvP_over_FmP",
+    LeafTemperature = "Leaf.Temperature",
+    Leafthickness = "leaf_thickness",
+    LightIntensity = "Light.Intensity..PAR.",
+    PS1ActiveCenters = "PS1.Active.Centers",
+    PS1OpenCenters = "PS1.Open.Centers",
+    PS1OverReducedCenters = "PS1.Over.Reduced.Centers",
+    PS1OxidizedCenters = "PS1.Oxidized.Centers"
+  )
+```
+
+```{r}
+PSQ1 <- PSQ1[, c(4, 5, 7, 8, 11, 19:22, 28, 32, 35, 36, 42:48, 52, 54)]
+unique(PSQ1$time)
+```
+
+
+```{r}
+colnames(PSQ1) <- gsub("\\.", "_", colnames(PSQ1))
+colnames(PSQ1)[1] <- ("Pot.No")
+colnames(PSQ1)
+```
+
+
+```{r}
+PSQ1$time <- gsub(".*12/9/2022.*", "day6", PSQ1$time)
+PSQ1$time <- gsub(".*12/16/2022.*", "day13", PSQ1$time)
+```
+
+
+```{r}
+gghistogram(PSQ1,
+  x = "FvP", fill = "lightgray",
+  add = "mean", rug = TRUE, facet.by = "time"
+)
+```
+
+
+```{r}
+gghistogram(PSQ1,
+  x = "LeafTemperature", fill = "lightgray",
+  add = "mean", rug = TRUE, facet.by = "time"
+)
+```
+
+```{r}
+gghistogram(PSQ1,
+  x = "Leafthickness", fill = "lightgray",
+  add = "mean", rug = TRUE, facet.by = "time"
+)
+```
+
+
+```{r}
+PSQ1 <- subset(PSQ1, PSQ1$Leafthickness < 2)
+PSQ1
+```
+
+
+```{r}
+mPSQ1 <- melt(PSQ1, id = c("Pot.No", "time"))
+mPSQ1
+```
+
+```{r}
+PSQ1_cast <- dcast(mPSQ1, Pot.No ~ time + variable)
+PSQ1_cast$exp <- 1
+PSQ1_cast
+```
+
+############################################################### PQ Ex2 ##############################################################
+
+```{r PSQ experiment 2}
+PSQ2 <- read.csv(PSQ_all[2])
+colnames(PSQ2)
+```
+```{r}
+PSQ2 <- PSQ2 %>%
+  rename(
+    AmbientHumidity = "Ambient.Humidity",
+    FvP = "FvP_over_FmP",
+    LeafTemperature = "Leaf.Temperature",
+    Leafthickness = "leaf_thickness",
+    LightIntensity = "Light.Intensity..PAR.",
+    PS1ActiveCenters = "PS1.Active.Centers",
+    PS1OpenCenters = "PS1.Open.Centers",
+    PS1OverReducedCenters = "PS1.Over.Reduced.Centers",
+    PS1OxidizedCenters = "PS1.Oxidized.Centers"
+  )
+```
+
+
+```{r}
+PSQ2 <- PSQ2[, c(4, 5, 7, 8, 11, 19:22, 28, 32, 35, 36, 42:48, 52, 54)]
+unique(PSQ2$time)
+```
+
+```{r}
+colnames(PSQ2) <- gsub("\\.", "_", colnames(PSQ2))
+colnames(PSQ2)[1] <- "Pot.No"
+colnames(PSQ2)
+```
+
+
+
+```{r}
+PSQ2$time <- gsub(".*12/29/2022.*", "day6", PSQ2$time)
+PSQ2$time <- gsub(".*1/5/2023.*", "day13", PSQ2$time)
+```
+
+
+```{r}
+gghistogram(PSQ2,
+  x = "FvP", fill = "lightgray",
+  add = "mean", rug = TRUE, facet.by = "time"
+)
+```
+
+
+```{r}
+gghistogram(PSQ2,
+  x = "LeafTemperature", fill = "lightgray",
+  add = "mean", rug = TRUE, facet.by = "time"
+)
+```
+
+```{r}
+gghistogram(PSQ2,
+  x = "Leafthickness", fill = "lightgray",
+  add = "mean", rug = TRUE, facet.by = "time"
+)
+```
+
+
+```{r}
+PSQ2 <- subset(PSQ2, PSQ2$Leafthickness < 2)
+PSQ2
+```
+
+
+```{r}
+mPSQ2 <- melt(PSQ2, id = c("Pot.No", "time"))
+mPSQ2
+```
+
+```{r}
+PSQ2_cast <- dcast(mPSQ2, Pot.No ~ time + variable)
+PSQ2_cast$exp <- 2
+PSQ2_cast
+```
+
+############################################################# PQ Ex3 ############################################################
+
+
+```{r PQ Experiment 3}
+PSQ3 <- read.csv(PSQ_all[3])
+colnames(PSQ3)
+```
+```{r}
+PSQ3 <- PSQ3 %>%
+  rename(
+    AmbientHumidity = "Ambient.Humidity",
+    FvP = "FvP_over_FmP",
+    LeafTemperature = "Leaf.Temperature",
+    Leafthickness = "leaf_thickness",
+    LightIntensity = "Light.Intensity..PAR.",
+    PS1ActiveCenters = "PS1.Active.Centers",
+    PS1OpenCenters = "PS1.Open.Centers",
+    PS1OverReducedCenters = "PS1.Over.Reduced.Centers",
+    PS1OxidizedCenters = "PS1.Oxidized.Centers"
+  )
+```
+
+
+```{r}
+PSQ3 <- PSQ3[, c(4, 5, 7, 8, 11, 19:22, 28, 32, 35, 36, 42:48, 52, 54)]
+unique(PSQ3$time)
+```
+
+```{r}
+PSQ3$time <- gsub(".*1/17/2023.*", "day6", PSQ3$time)
+PSQ3$time <- gsub(".*1/24/2023.*", "day13", PSQ3$time)
+```
+
+```{r}
+colnames(PSQ3) <- gsub("\\.", "_", colnames(PSQ3))
+colnames(PSQ3)[1] <- "Pot.No"
+colnames(PSQ3)
+```
+
+
+```{r}
+gghistogram(PSQ3,
+  x = "FvP", fill = "lightgray",
+  add = "mean", rug = TRUE, facet.by = "time"
+)
+```
+
+
+```{r}
+gghistogram(PSQ3,
+  x = "LeafTemperature", fill = "lightgray",
+  add = "mean", rug = TRUE, facet.by = "time"
+)
+```
+
+```{r}
+gghistogram(PSQ3,
+  x = "Leafthickness", fill = "lightgray",
+  add = "mean", rug = TRUE, facet.by = "time"
+)
+```
+
+```{r}
+mPSQ3 <- melt(PSQ3, id = c("Pot.No", "time"))
+mPSQ3
+```
+
+
+```{r}
+PSQ3_cast <- dcast(mPSQ3, Pot.No ~ time + variable)
+PSQ3_cast$exp <- 3
+PSQ3_cast
+```
+
+
+
+############################################################### PQ Ex4 ##############################################################
+
+```{r PSQ experiment 4}
+PSQ4 <- read.csv(PSQ_all[4])
+colnames(PSQ4)
+```
+```{r}
+PSQ4 <- PSQ4 %>%
+  rename(
+    AmbientHumidity = "Ambient.Humidity",
+    FvP = "FvP_over_FmP",
+    LeafTemperature = "Leaf.Temperature",
+    Leafthickness = "leaf_thickness",
+    LightIntensity = "Light.Intensity..PAR.",
+    PS1ActiveCenters = "PS1.Active.Centers",
+    PS1OpenCenters = "PS1.Open.Centers",
+    PS1OverReducedCenters = "PS1.Over.Reduced.Centers",
+    PS1OxidizedCenters = "PS1.Oxidized.Centers"
+  )
+```
+
+
+
+```{r}
+PSQ4 <- PSQ4[, c(4, 5, 7, 8, 11, 19:22, 28, 32, 35, 36, 42:48, 52, 54)]
+unique(PSQ4$time)
+```
+
+```{r}
+colnames(PSQ4) <- gsub("\\.", "_", colnames(PSQ4))
+colnames(PSQ4)[1] <- "Pot.No"
+colnames(PSQ4)
+```
+
+```{r}
+PSQ4$time <- gsub(".*4/21/2023.*", "day6", PSQ4$time)
+PSQ4$time <- gsub(".*4/28/2023.*", "day13", PSQ4$time)
+```
+
+
+```{r}
+gghistogram(PSQ4,
+  x = "FvP", fill = "lightgray",
+  add = "mean", rug = TRUE, facet.by = "time"
+)
+```
+
+
+```{r}
+gghistogram(PSQ4,
+  x = "LeafTemperature", fill = "lightgray",
+  add = "mean", rug = TRUE, facet.by = "time"
+)
+```
+
+```{r}
+gghistogram(PSQ4,
+  x = "Leafthickness", fill = "lightgray",
+  add = "mean", rug = TRUE, facet.by = "time"
+)
+```
+
+
+```{r}
+PSQ4 <- subset(PSQ4, PSQ4$Leafthickness < 2)
+PSQ4
+```
+
+
+```{r}
+mPSQ4 <- melt(PSQ4, id = c("Pot.No", "time"))
+mPSQ4
+```
+
+```{r}
+PSQ4_cast <- dcast(mPSQ4, Pot.No ~ time + variable)
+PSQ4_cast$exp <- 4
+PSQ4_cast
+```
+
+################################################### PQ Ex5 ################################################
+```{r PSQ experiment 5}
+PSQ5 <- read.csv(PSQ_all[5])
+colnames(PSQ5)
+```
+```{r}
+PSQ5 <- PSQ5 %>%
+  rename(
+    AmbientHumidity = "Ambient.Humidity",
+    FvP = "FvP_over_FmP",
+    LeafTemperature = "Leaf.Temperature",
+    Leafthickness = "leaf_thickness",
+    LightIntensity = "Light.Intensity..PAR.",
+    PS1ActiveCenters = "PS1.Active.Centers",
+    PS1OpenCenters = "PS1.Open.Centers",
+    PS1OverReducedCenters = "PS1.Over.Reduced.Centers",
+    PS1OxidizedCenters = "PS1.Oxidized.Centers"
+  )
+```
+
+
+```{r}
+PSQ5 <- PSQ5[, c(4, 5, 7, 8, 11, 19:22, 28, 32, 35, 36, 42:48, 52, 54)]
+unique(PSQ5$time)
+```
+
+```{r}
+colnames(PSQ5) <- gsub("\\.", "_", colnames(PSQ5))
+colnames(PSQ5)[1] <- "Pot.No"
+colnames(PSQ5)
+```
+
+```{r}
+PSQ5$time <- gsub(".*5/5/2023.*", "day6", PSQ5$time)
+PSQ5$time <- gsub(".*5/12/2023.*", "day13", PSQ5$time)
+```
+
+
+```{r}
+gghistogram(PSQ5,
+  x = "FvP", fill = "lightgray",
+  add = "mean", rug = TRUE, facet.by = "time"
+)
+```
+
+
+```{r}
+gghistogram(PSQ5,
+  x = "LeafTemperature", fill = "lightgray",
+  add = "mean", rug = TRUE, facet.by = "time"
+)
+```
+
+```{r}
+gghistogram(PSQ5,
+  x = "Leafthickness", fill = "lightgray",
+  add = "mean", rug = TRUE, facet.by = "time"
+)
+```
+
+
+```{r}
+PSQ5 <- subset(PSQ5, PSQ5$Leafthickness < 2)
+PSQ5
+```
+
+
+```{r}
+mPSQ5 <- melt(PSQ5, id = c("Pot.No", "time"))
+mPSQ5
+```
+
+```{r}
+PSQ5_cast <- dcast(mPSQ5, Pot.No ~ time + variable)
+PSQ5_cast$exp <- 5
+PSQ5_cast
+```
+
+######################################################## PQ Ex6 ################################################################
+
+
+```{r PSQ experiment 6}
+PSQ6 <- read.csv(PSQ_all[6])
+colnames(PSQ6)
+```
+```{r}
+PSQ6 <- PSQ6 %>%
+  rename(
+    AmbientHumidity = "Ambient.Humidity",
+    FvP = "FvP_over_FmP",
+    LeafTemperature = "Leaf.Temperature",
+    Leafthickness = "leaf_thickness",
+    LightIntensity = "Light.Intensity..PAR.",
+    PS1ActiveCenters = "PS1.Active.Centers",
+    PS1OpenCenters = "PS1.Open.Centers",
+    PS1OverReducedCenters = "PS1.Over.Reduced.Centers",
+    PS1OxidizedCenters = "PS1.Oxidized.Centers"
+  )
+```
+
+
+```{r}
+PSQ6 <- PSQ6[, c(4, 5, 7, 8, 11, 19:22, 28, 32, 35, 36, 42:48, 52, 54)]
+unique(PSQ6$time)
+```
+
+```{r}
+colnames(PSQ6) <- gsub("\\.", "_", colnames(PSQ6))
+colnames(PSQ6)[1] <- "Pot.No"
+colnames(PSQ6)
+```
+
+
+```{r}
+PSQ6$time <- gsub(".*6/2/2023.*", "day6", PSQ6$time)
+PSQ6$time <- gsub(".*6/9/2023.*", "day13", PSQ6$time)
+```
+
+
+
+```{r}
+gghistogram(PSQ6,
+  x = "FvP", fill = "lightgray",
+  add = "mean", rug = TRUE, facet.by = "time"
+)
+```
+
+
+```{r}
+gghistogram(PSQ6,
+  x = "LeafTemperature", fill = "lightgray",
+  add = "mean", rug = TRUE, facet.by = "time"
+)
+```
+
+```{r}
+gghistogram(PSQ6,
+  x = "Leafthickness", fill = "lightgray",
+  add = "mean", rug = TRUE, facet.by = "time"
+)
+```
+
+
+```{r}
+PSQ6 <- subset(PSQ6, PSQ6$Leafthickness < 2)
+PSQ6
+```
+
+
+```{r}
+mPSQ6 <- melt(PSQ6, id = c("Pot.No", "time"))
+mPSQ6
+```
+
+```{r}
+PSQ6_cast <- dcast(mPSQ6, Pot.No ~ time + variable)
+PSQ6_cast$exp <- 6
+PSQ6_cast
+```
+
+
+######################################################## PQ Ex7 ###########################################################
+
+
+```{r PSQ experiment 7}
+PSQ7 <- read.csv(PSQ_all[7])
+colnames(PSQ7)
+```
+```{r}
+PSQ7 <- PSQ7 %>%
+  rename(
+    AmbientHumidity = "Ambient.Humidity",
+    FvP = "FvP_over_FmP",
+    LeafTemperature = "Leaf.Temperature",
+    Leafthickness = "leaf_thickness",
+    LightIntensity = "Light.Intensity..PAR.",
+    PS1ActiveCenters = "PS1.Active.Centers",
+    PS1OpenCenters = "PS1.Open.Centers",
+    PS1OverReducedCenters = "PS1.Over.Reduced.Centers",
+    PS1OxidizedCenters = "PS1.Oxidized.Centers"
+  )
+```
+
+
+```{r}
+PSQ7 <- PSQ7[, c(4, 5, 7, 8, 11, 19:22, 28, 32, 35, 36, 42:48, 52, 54)]
+unique(PSQ7$time)
+```
+
+```{r}
+colnames(PSQ7) <- gsub("\\.", "_", colnames(PSQ7))
+colnames(PSQ7)[1] <- "Pot.No"
+colnames(PSQ7)
+```
+
+```{r}
+PSQ7$time <- gsub(".*6/23/2023.*", "day6", PSQ7$time)
+PSQ7$time <- gsub(".*6/30/2023.*", "day13", PSQ7$time)
+```
+
+
+
+```{r}
+gghistogram(PSQ7,
+  x = "FvP", fill = "lightgray",
+  add = "mean", rug = TRUE, facet.by = "time"
+)
+```
+
+
+```{r}
+gghistogram(PSQ7,
+  x = "LeafTemperature", fill = "lightgray",
+  add = "mean", rug = TRUE, facet.by = "time"
+)
+```
+
+```{r}
+gghistogram(PSQ7,
+  x = "Leafthickness", fill = "lightgray",
+  add = "mean", rug = TRUE, facet.by = "time"
+)
+```
+
+
+```{r}
+PSQ7 <- subset(PSQ7, PSQ7$Leafthickness < 2)
+PSQ7
+```
+
+
+```{r}
+mPSQ7 <- melt(PSQ7, id = c("Pot.No", "time"))
+mPSQ7
+```
+
+```{r}
+PSQ7_cast <- dcast(mPSQ7, Pot.No ~ time + variable)
+PSQ7_cast$exp <- 7
+PSQ7_cast
+```
+
+
+######################################################## PQ Ex8 ################################################################
+
+
+```{r PSQ experiment 8}
+PSQ8 <- read.csv(PSQ_all[8])
+colnames(PSQ8)
+```
+```{r}
+PSQ8 <- PSQ8 %>%
+  rename(
+    AmbientHumidity = "Ambient.Humidity",
+    FvP = "FvP_over_FmP",
+    LeafTemperature = "Leaf.Temperature",
+    Leafthickness = "leaf_thickness",
+    LightIntensity = "Light.Intensity..PAR.",
+    PS1ActiveCenters = "PS1.Active.Centers",
+    PS1OpenCenters = "PS1.Open.Centers",
+    PS1OverReducedCenters = "PS1.Over.Reduced.Centers",
+    PS1OxidizedCenters = "PS1.Oxidized.Centers"
+  )
+```
+
+
+
+```{r}
+PSQ8 <- PSQ8[, c(4, 5, 7, 8, 11, 19:22, 28, 32, 35, 36, 42:48, 52, 54)]
+unique(PSQ8$time)
+```
+
+```{r}
+colnames(PSQ8) <- gsub("\\.", "_", colnames(PSQ8))
+colnames(PSQ8)[1] <- "Pot.No"
+colnames(PSQ8)
+```
+
+```{r}
+PSQ8$time <- gsub(".*7/14/2023.*", "day6", PSQ8$time)
+PSQ8$time <- gsub(".*7/21/2023.*", "day13", PSQ8$time)
+```
+
+
+
+```{r}
+gghistogram(PSQ8,
+  x = "FvP", fill = "lightgray",
+  add = "mean", rug = TRUE, facet.by = "time"
+)
+```
+
+
+```{r}
+gghistogram(PSQ8,
+  x = "LeafTemperature", fill = "lightgray",
+  add = "mean", rug = TRUE, facet.by = "time"
+)
+```
+
+```{r}
+gghistogram(PSQ8,
+  x = "Leafthickness", fill = "lightgray",
+  add = "mean", rug = TRUE, facet.by = "time"
+)
+```
+
+
+```{r}
+PSQ8 <- subset(PSQ8, PSQ8$Leafthickness < 2)
+PSQ8
+```
+
+
+```{r}
+mPSQ8 <- melt(PSQ8, id = c("Pot.No", "time"))
+mPSQ8
+```
+
+```{r}
+PSQ8_cast <- dcast(mPSQ8, Pot.No ~ time + variable)
+PSQ8_cast$exp <- 8
+PSQ8_cast
+```
+
+```{r Binding all PQ data together}
+colnames(PSQ1_cast) %in% colnames(PSQ2_cast)
+PSQ <- rbind(PSQ1_cast, PSQ2_cast)
+```
+
+```{r}
+colnames(PSQ1_cast) %in% colnames(PSQ3_cast)
+PSQ <- rbind(PSQ, PSQ3_cast)
+```
+
+```{r}
+colnames(PSQ1_cast) %in% colnames(PSQ4_cast)
+PSQ <- rbind(PSQ, PSQ4_cast)
+```
+
+```{r}
+colnames(PSQ1_cast) %in% colnames(PSQ5_cast)
+PSQ <- rbind(PSQ, PSQ5_cast)
+```
+
+
+```{r}
+colnames(PSQ1_cast) %in% colnames(PSQ6_cast)
+PSQ <- rbind(PSQ, PSQ6_cast)
+```
+
+
+```{r}
+colnames(PSQ1_cast) %in% colnames(PSQ7_cast)
+PSQ <- rbind(PSQ, PSQ7_cast)
+```
+
+
+```{r}
+colnames(PSQ1_cast) %in% colnames(PSQ8_cast)
+PSQ <- rbind(PSQ, PSQ8_cast)
+```
+
+
+
+#############################################################################################################################################################
+###############################################################  EVAPOTRANSPIRATION DATA ANALYSIS ###############################################
+#############################################################################################################################################################
+
+
+```{r Evapotranspiration}
+EVT_all <- list.files(pattern = "EVT")
+EVT_all
+```
+
+
+```{r}
+# List to store the melted data frames
+melted_data <- list()
+
+# Loop over ET1 to ET8
+for (i in 1:8) {
+  # Read the Excel file
+  ET <- read_xlsx(EVT_all[i])
+
+  # Remove the first column
+  ET <- ET %>% select(-1)
+
+  # Melt the data
+  ET_melted <- melt(ET, id.vars = c("PotTag", "Accession", "Treatment"))
+
+  # Rename the columns
+  colnames(ET_melted)[4] <- "day"
+  colnames(ET_melted)[5] <- "ET"
+
+  # Modify the 'day' coloumn
+  ET_melted$day <- gsub("Day", "", ET_melted$day)
+
+  # Add the 'exp' column
+  ET_melted <- ET_melted %>%
+    mutate(exp = i)
+
+  # Store the melted data frame in the list
+  melted_data[[i]] <- ET_melted
+}
+
+# Merge the melted data frames
+merged_data <- bind_rows(melted_data)
+
+# Find the unique 'day' values
+unique_days <- merged_data %>%
+  group_by(exp) %>%
+  distinct(day, .keep_all = TRUE) %>%
+  select(exp, day)
+```
+
+
+```{r 4.Evapotranspiration (g water/day) after days of stress---Without smooth spline}
+# Convert the 'ET' column in 'merged_data' to numeric type
+merged_data$ET <- as.numeric(as.character(merged_data$ET))
+
+# merged_data$ID <- paste(merged_data$exp, merged_data$PotTag, merged_data$Accession, merged_data$Treatment, sep="_")
+
+# Create a unique 'ID' by concatenating values from 'exp,' 'Accession,' and the first character of 'Treatment'
+merged_data$ID <- paste(merged_data$exp, merged_data$Accession, substr(merged_data$Treatment, 1, 1), sep = "_")
+
+# Rename the fifth column of 'merged_data' to "EVT"
+colnames(merged_data)[5] <- "EVT"
+
+# Create a subset 'ET_clean' of 'merged_data' where 'EVT' is greater than 0, less than 200, and 'day' is less than 15
+ET_clean <- subset(merged_data, merged_data$EVT > 0)
+ET_clean <- subset(ET_clean, ET_clean$EVT < 200)
+ET_clean$day <- as.numeric(ET_clean$day)
+
+# Convert the 'day' column in 'ET_clean' to a factor
+ET_clean$day <- as.factor(as.numeric(as.character(ET_clean$day)))
+
+# Create a line graph 'ET_lgraph' using 'ET_clean' data for visualization
+ET_lgraph <- ggplot(data = ET_clean, aes(x = day, y = EVT, group = ID, color = Treatment)) +
+  geom_line(alpha = 0.1) +
+  stat_summary(fun.data = mean_se, geom = "ribbon", linetype = 0, aes(group = Treatment), alpha = 0.3) +
+  stat_summary(fun = mean, aes(group = Treatment), size = 0.7, geom = "line", linetype = "dashed") +
+  stat_compare_means(aes(group = Treatment), label = "p.signif", method = "t.test", hide.ns = TRUE) +
+  ylab("Evapotranspiration (g H2O / day)") +
+  xlab("Days After Stress") +
+  scale_color_d3()
+
+ET_lgraph
+```
+
+
+```{r Smooth splines for Evapotranspiration}
+# Create a vector 'days' representing a range from 1 to 14
+days <- 1:14
+
+# Create a subset 'temp' of the 'ET_clean' data frame for the first unique 'ID'
+temp <- subset(ET_clean, ET_clean$ID == unique(ET_clean$ID)[1])
+
+# Convert the 'day' column in 'temp' to numeric type
+temp$day <- as.numeric(as.character(temp$day))
+
+temp$day
+```
+
+```{r}
+temp$EVT
+```
+
+```{r}
+# Fit a cubic smoothing spline ('smooth.spline') to the 'day' and 'EVT' data in 'temp'
+plot.spl <- with(temp, smooth.spline(day, EVT, df = 5))
+
+# Create a scatter plot of 'EVT' against 'day' using data from 'temp'
+plot(EVT ~ day, data = temp)
+
+# Add a blue line representing the cubic smoothing spline to the scatter plot
+lines(plot.spl, col = "blue")
+
+# Add a red line representing the predicted values from the cubic smoothing spline for the 'days' vector
+lines(predict(plot.spl, days), col = "red")
+```
+
+
+```{r}
+# Create a vector 'names' specifying column names for a new data frame 'EVT_spline_data'
+names <- c(text = "ID", "Accession", "Treatment", "day", "EVT")
+
+# Create an empty data frame 'EVT_spline_data' with columns set as character vectors
+EVT_spline_data <- data.frame()
+for (k in names) EVT_spline_data[[k]] <- as.character()
+
+EVT_spline_data
+```
+
+
+```{r}
+# Generate predictions for 'EVT' using the cubic smoothing spline model 'plot.spl' and the 'days' vector
+pred_temp <- predict(plot.spl, days)
+pred_temp
+```
+
+
+```{r}
+# Populate the 'EVT_spline_data' data frame with predictions from 'pred_temp' and other information
+# Rows 1 to 14 are assigned 'pred_temp$x' values to the 4th column and 'pred_temp$y' values to the 5th column
+# First three columns receive values from the corresponding columns in the 'temp' data
+EVT_spline_data[1:14, 4] <- pred_temp$x
+EVT_spline_data[1:14, 5] <- pred_temp$y
+EVT_spline_data[1:14, 1] <- temp$ID[1]
+EVT_spline_data[1:14, 2] <- temp$Accession[1]
+EVT_spline_data[1:14, 3] <- temp$Treatment[1]
+
+EVT_spline_data
+```
+
+```{r}
+# Create a 'EVT_spline_data' data frame as 'final_EVT_spline'
+final_EVT_spline <- EVT_spline_data
+
+# Extract unique 'ID' values from 'ET_clean' and calculate the length
+all_plants <- unique(ET_clean$ID)
+length(all_plants)
+```
+
+```{r looping through the data}
+# Loop through unique 'ID' values starting from the second one (index 2) to the 609th
+for (i in 2:609) {
+  # Create a subset 'temp' of 'ET_clean' for the current 'ID'
+  temp <- subset(ET_clean, ET_clean$ID == all_plants[i])
+
+  # Check if the number of rows in 'temp' is greater than 4
+  if (dim(temp)[1] > 4) {
+    # Fit a cubic smoothing spline to the 'day' and 'EVT' data in 'temp'
+    plot.spl <- with(temp, smooth.spline(day, EVT, df = 5))
+
+    # Generate predictions for 'EVT' using the smoothing spline and 'days'
+    pred_temp <- predict(plot.spl, days)
+
+    # Update the first 14 rows of 'EVT_spline_data' with predictions and other information
+    EVT_spline_data[1:14, 4] <- pred_temp$x
+    EVT_spline_data[1:14, 5] <- pred_temp$y
+    EVT_spline_data[1:14, 1] <- temp$ID[1]
+    EVT_spline_data[1:14, 2] <- temp$Accession[1]
+    EVT_spline_data[1:14, 3] <- temp$Treatment[1]
+
+    # Append the updated 'EVT_spline_data' to 'final_EVT_spline'
+    final_EVT_spline <- rbind(final_EVT_spline, EVT_spline_data)
+  } else {
+    # For 'temp' with fewer than 5 rows, set specific values in 'spline_data'
+    spline_data[1:14, 4] <- days
+    spline_data[1:14, 5] <- 0
+    spline_data[1:14, 1] <- temp$ID[1]
+    spline_data[1:14, 2] <- temp$Accession[1]
+    spline_data[1:14, 3] <- temp$Treatment[1]
+  }
+}
+
+final_EVT_spline
+```
+
+```{r}
+# Create a subset 'clean_EVT_spline' from 'final_EVT_spline' where 'EVT' is greater than 0
+clean_EVT_spline <- subset(final_EVT_spline, final_EVT_spline$EVT > 0)
+
+clean_EVT_spline
+```
+
+```{r 5. EVT with smooth spline}
+# Convert the 'day' column in 'clean_EVT_spline' to a factor with numeric values
+clean_EVT_spline$day <- as.factor(as.numeric(clean_EVT_spline$day))
+
+# Convert the 'EVT' column in 'clean_EVT_spline' to numeric type
+clean_EVT_spline$EVT <- as.numeric(as.character(clean_EVT_spline$EVT))
+
+# Exclude plants from 'clean_EVT_spline' that were previously excluded from 'growth_data_clean'
+clean_EVT_spline <- subset(clean_EVT_spline, clean_EVT_spline$ID %in% growth_data_clean$ID)
+
+# Create a line graph 'ET_lgraph_spline' for 'EVT' data with grouping by 'ID' and coloring by 'Treatment'
+ET_lgraph_spline <- ggplot(data = clean_EVT_spline, aes(x = day, y = EVT, group = ID, color = Treatment)) +
+  geom_line(alpha = 0.1) +
+  stat_summary(fun.data = mean_se, geom = "ribbon", linetype = 0, aes(group = Treatment), alpha = 0.2) +
+  stat_summary(fun = mean, aes(group = Treatment), size = 0.7, geom = "line", linetype = "dashed") +
+  stat_compare_means(aes(group = Treatment), label = "p.signif", method = "t.test", hide.ns = TRUE) +
+  ylab("Evapotranspiration (g H2O / day)") +
+  xlab("Days After Stress") +
+  scale_color_d3()+
+  guides(color=FALSE)+
+  theme(
+    legend.position = "none",
+    panel.background = element_rect(fill = "transparent"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.border = element_rect(color = "black", fill = NA),
+    axis.line = element_line(color = "black"),
+    axis.text.x = element_text(size = 14),
+    axis.text.y = element_text(size = 14)
+  )
+
+ET_lgraph_spline
+```
+
+
+```{r At what day we see EVT}
+diff_in_EVT <- ggboxplot(clean_EVT_spline, x = "day", y = "EVT",
+              color = "Treatment", fill = "Treatment", palette = c("#00AFBB", "#FC4E07")) +
+  stat_summary(fun = "median", geom = "line", aes(group = Treatment), linewidth = 0.1) +
+  stat_compare_means(aes(group = Treatment), method = "t.test", label = "p.signif") +
+  labs(x = "Days after stress", y = "Evapotranspiration (g H2O / day)") +
+  scale_y_continuous(breaks = c(0, 25, 50, 75, 100))
+
+print(diff_in_EVT)
+
+
+
+
+```
+
+
+```{r Median transpiration per pot and cumulative transpiration per entire observation period}
+# Calculate the summary statistics for 'EVT' grouped by 'ID,' 'Treatment,' and 'Accession' in 'clean_EVT_spline'
+sum_ET <- summaryBy(EVT ~ ID + Treatment + Accession, data = clean_EVT_spline, FUN = function(x) c(sum = sum(x)))
+
+# Reset row names to avoid index-based row names
+rownames(sum_ET) <- NULL
+
+sum_ET
+```
+
+```{r}
+# Convert the 'day' column in 'clean_EVT_spline' to numeric type
+clean_EVT_spline$day <- as.numeric(as.character(clean_EVT_spline$day))
+
+# Create a subset 'sub_EVT' of 'clean_EVT_spline' for days between 4 and 11
+sub_EVT <- subset(clean_EVT_spline, clean_EVT_spline$day > 3)
+sub_EVT <- subset(sub_EVT, sub_EVT$day < 12)
+
+# Calculate the median 'EVT' values grouped by 'ID,' 'Treatment,' and 'Accession' in 'sub_EVT'
+median_ET <- summaryBy(EVT ~ ID + Treatment + Accession, data = sub_EVT, FUN = function(x) c(med = median(x)))
+
+# Reset row names to avoid index-based row names
+rownames(median_ET) <- NULL
+
+median_ET
+```
+
+
+
+```{r}
+# Merge the summary statistics data frames 'sum_ET' and 'median_ET' based on common columns: "ID," "Treatment," and "Accession"
+EVT_final <- merge(sum_ET, median_ET, by = c("ID", "Treatment", "Accession"))
+
+EVT_final
+```
+
+
+```{r 6. Overall Meadian Evapotranspiration between treatments}
+# Define custom colors for the boxplot
+custom_colors <- c("lightskyblue3", "gray59") # Replace with desired colors
+
+# Create a boxplot with jittered points for 'EVT.med' grouped by 'Treatment'
+EVT_med_overall <- ggplot(EVT_final, aes(x = Treatment, y = EVT.med, fill = Treatment)) +
+
+  # Add a boxplot layer to the plot
+  geom_boxplot() +
+
+  # Add jittered points to the plot to show individual data points with a specified width and color
+  geom_jitter(width = 0.2, color = "tan") +
+
+  # Calculate and display statistical comparisons using a t-test method
+  stat_compare_means(method = "t.test", ref.group = "Control", label = "p.signif", hide.ns = TRUE) +
+
+  # Set the label for the x-axis
+  xlab("Treatment") +
+
+  # Set the label for the y-axis
+  ylab("Median evapotranspiration (g H2O / day)") +
+
+  # Manually specify fill colors for the plot
+  scale_fill_manual(values = custom_colors) +
+
+  # Customize the theme of the plot, including the legend position, panel background, grid lines, panel border, and axis line
+  theme(
+    legend.position = "bottom",
+    panel.background = element_rect(fill = "transparent"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.border = element_rect(color = "black", fill = NA),
+    axis.line = element_line(color = "black")
+  )
+
+EVT_med_overall
+```
+
+
+```{r}
+# Create a ggplot object 'EVT_sum_overall' using 'EVT_final' as the data source.
+EVT_sum_overall <- ggplot(EVT_final, aes(x = Treatment, y = EVT.sum, fill = Treatment)) +
+  geom_boxplot() +
+  geom_jitter(width = 0.2, color = "gray") +
+  stat_compare_means(method = "t.test", ref.group = "Control", label = "p.signif", hide.ns = TRUE) +
+  xlab("Treatment") +
+  ylab("Cumulative evapotranspiration (g H2O / experiment)") +
+  scale_fill_nejm() +
+  theme(legend.position = "none")
+
+EVT_sum_overall
+```
+
+
+```{r Merging all data together}
+# Sets row names in the 'final_spline' data frame to NULL and displays the resulting 'final_spline' data frame
+rownames(final_spline) <- NULL
+final_spline
+```
+
+```{r}
+# Create a new data frame SV_cast by transforming final_spline rows in SV_cast will correspond to unique 'ID' values
+# Columns in SV_cast will correspond to unique 'day' values
+SV_cast <- dcast(final_spline, ID ~ day)
+```
+
+
+```{r}
+# Rename the column names in SV_cast by adding a prefix
+colnames(SV_cast) <- paste("Area.SUM_day", colnames(SV_cast), sep = "")
+
+# Rename the first column to "ID" for clarity
+colnames(SV_cast)[1] <- "ID"
+
+SV_cast
+```
+
+```{r}
+# Merge data frames growth_data_clean and clean_FW based on common columns "ID", "Accession", and "Treatment"
+curated_data <- merge(growth_data_clean, clean_FW, by = c("ID", "Accession", "Treatment"))
+
+# Merge the resulting data frame with SV_cast based on the common column "ID"
+curated_data <- merge(curated_data, SV_cast, by = c("ID"))
+
+# Rename the first column to "sid" for clarity
+colnames(curated_data)[1] <- "sid"
+
+curated_data
+```
+
+```{r Merging EVT data together}
+rownames(clean_EVT_spline) <- NULL
+clean_EVT_spline
+```
+
+
+```{r}
+# Create a new data frame EVT_cast by transforming clean_EVT_spline, rows in EVT_cast will correspond to unique combinations of 'ID', 'Treatment', and 'Accession', Columns in EVT_cast will correspond to unique 'day' values
+EVT_cast <- dcast(clean_EVT_spline, ID + Treatment + Accession ~ day)
+EVT_cast
+```
+
+
+```{r Renaming coloumn names with ID,Treatment and Accession and prefix with EVT_day 1:14 from 4th coloumn to 17th}
+# Rename the first three columns to "sid", "Treatment", and "Accession"
+EVT_cast <- EVT_cast %>%
+  setNames(c("sid", "Treatment", "Accession"))
+
+# Create new column names with "EVT_day" followed by numbers from 1 to 14
+new_column_names <- c(colnames(EVT_cast)[1:3], paste0("EVT_day", 1:14))
+
+# Assign the new column names to the EVT_cast data frame
+colnames(EVT_cast) <- new_column_names
+
+EVT_cast
+```
+
+
+```{r}
+EVT_final <- EVT_final %>%
+  rename(sid = ID)
+EVT_final
+```
+
+
+```{r}
+complete_EVT <- merge(EVT_cast, EVT_final, by = c("sid", "Treatment", "Accession"))
+complete_EVT
+```
+
+
+########################################### Read excel file PSQ as dots are removed from the labels  ###############################################
+
+```{r Merging----PQ data}
+# For merging we need a column with matching values in both dataset, so we will create a column in the PSQ dataset which matches with the sid column in curated_data
+```
+
+
+```{r}
+# Add a new column 'exp_id' to the PSQ data frame and combine values from 'day13_sid' and the first character of 'day13_Treatment' with an underscore
+PSQ <- PSQ %>%
+  mutate(exp_id = paste0(day13_sid, "_", substr(day13_Treatment, 1, 1)))
+PSQ
+```
+
+
+```{r}
+# Merge the 'curated_data' and 'PSQ' data frames based on the 'sid' column from 'curated_data'and the 'exp_id' column from 'PSQ'
+# Including all rows from 'curated_data' (left join)
+curated_data_PSQ <- merge(curated_data, PSQ, by.x = "sid", by.y = "exp_id", all.x = TRUE)
+
+curated_data_PSQ
+```
+
+
+```{r There were duplicate values in TDP-359 in control and drought. Those were removed.Use this file to read from this chunk}
+# curated_data_PSQ<- read.csv("curated_data_PSQ_Removed_duplicates.csv",header=TRUE,row.names = 1)
+```
+
+```{r}
+curated_data_PSQ_all <- merge(curated_data_PSQ, complete_EVT, by = c("sid", "Treatment", "Accession"))
+colnames(curated_data_PSQ_all)
+```
+
+
+```{r}
+# Subset the 'curated_data_PSQ_all' data frame to include specific columns
+# Keeping columns 1 to 4, column 6, and columns 9 to 86
+curated_data_PSQ_all <- curated_data_PSQ_all[, c(1:4, 6, 9:86)]
+
+# colnames(curated_data_all) <- gsub(".x", "", colnames(curated_data_all))
+curated_data_PSQ_all
+```
+
+
+```{r}
+# Use sapply to apply the 'class' function to each column of 'curated_data_PSQ_all'
+# This returns a vector containing the data types (classes) of each column
+sapply(curated_data_PSQ_all, class)
+```
+
+
+```{r corrections to curated data that became apparent from the PSQ graphs}
+# curated_data_all<- subset(curated_data_all, curated_data_all$day6_PS1.Active.Centers < 30)
+# curated_data_all <- subset(curated_data_all, curated_data_all$day6_PS1.Open.Centers > -100)
+# curated_data_all <- subset(curated_data_all, curated_data_all$day13_PS1.Open.Centers < 100)
+```
+
+
+```{r}
+# write.csv(curated_data_PSQ_all,"curated_data_PSQ_all.csv")
+```
+
+
+```{r Curated_data_PSQ_all______use this file for further analysis as _ in colnames are replaced to dots to avoid duplicates as we are splitting the colnames in PSQ_decoded loop}
+curated_data_PSQ_all <- read.csv("curated_data_PSQ_all.csv", row.names = 1, header = TRUE)
+```
+
+
+```{r}
+# Reshape the 'curated_data_PSQ_all' data frame by selecting specific columns
+# Using the 'melt' function to create a long-format data frame
+PSQ_decoded <- melt(curated_data_PSQ_all[, c(1:3, 30:46, 50:66)], id.vars = c("sid", "Treatment", "Accession"))
+
+# Convert the 'variable' column to character type
+PSQ_decoded$variable <- as.character(PSQ_decoded$variable)
+
+# Loop through each row in 'PSQ_decoded'
+for (i in 1:nrow(PSQ_decoded)) {
+  # Split the 'variable' column using underscores and extract the 'day' and 'trait' values
+  PSQ_decoded$day[i] <- strsplit(PSQ_decoded$variable[i], "_")[[1]][1]
+  PSQ_decoded$trait[i] <- strsplit(PSQ_decoded$variable[i], "_")[[1]][2]
+}
+
+# Rearrange columns in 'PSQ_decoded' to have 'day' and 'trait' before 'value'
+PSQ_decoded <- PSQ_decoded[, c(1:3, 6:7, 5)]
+
+PSQ_decoded
+```
+
+
+```{r}
+# write.csv(PSQ_decoded, "PSQ_decoded_new.csv", row.names = FALSE)
+PSQ_decoded <- read.csv("PSQ_decoded_new.csv")
+```
+
+
+```{r}
+# New data frame 'cPSQ' with rows for unique combinations of 'Accession', 'Treatment', 'sid', and 'day'
+# Columns in 'cPSQ' represent different 'trait' values
+cPSQ <- dcast(PSQ_decoded, Accession + Treatment + sid + day ~ trait)
+cPSQ
+```
+
+
+```{r}
+colnames(cPSQ)
+```
+
+
+```{r}
+# Define a vector 'cols.num' containing the column names to be converted to numeric
+cols.num <- c(
+  "FmPrime", "FoPrime", "Fs", "FvP",
+  "LeafTemperature", "Leafthickness",
+  "LightIntensity", "NPQt", "Phi2", "PhiNO",
+  "PhiNPQ", "PS1ActiveCenters", "PS1OpenCenters", "PS1OverReducedCenters", "PS1OxidizedCenters", "SPAD"
+)
+
+# Convert the selected columns in 'cPSQ' to numeric data type using 'lapply'
+cPSQ[cols.num] <- lapply(cPSQ[cols.num], as.numeric)
+
+# Check the data types of all columns in the 'cPSQ' data frame
+sapply(cPSQ, class)
+
+# Remove rows with missing values (NA) from the 'cPSQ' data frame
+cPSQ <- cPSQ %>% na.omit()
+```
+
+
+```{r}
+# Convert the 'day' column in 'cPSQ' to a factor with specified levels
+cPSQ$day <- factor(cPSQ$day, levels = c("day6", "day13"))
+```
+
+
+```{r }
+# Fm
+# cPSQ <- cPSQ %>% na.omit()
+# Create a ggplot2 plot for FmPrime data in 'cPSQ' data frame
+Fm_plot <- ggerrorplot(cPSQ,
+  y = "FmPrime", x = "Treatment", fill = "Treatment", color = "Treatment",
+  desc_stat = "mean_sd", add = "jitter", facet.by = "day",
+  add.params = list(color = "darkgrey"),
+  xlab = "Treatment", ylab = "Fm'"
+)
+
+# Remove the legend from the plot
+Fm_plot <- Fm_plot + rremove("legend")
+
+# Statistical comparison annotations (p-values) between treatment groups using t-tests
+Fm_plot <- Fm_plot + stat_compare_means(
+  method = "t.test", ref.group = "Control",
+  label = "p.signif", hide.ns = TRUE
+)
+
+# Scale color using the 'scale_color_jco' function (assuming it's a custom color palette)
+Fm_plot <- Fm_plot + scale_color_jco()
+
+Fm_plot
+```
+
+```{r}
+#Fm Paired
+# Define custom colors for the plot
+custom_colors <- c("lightskyblue3", "gray59")
+
+# Create a ggplot2 plot for FoPrime data in 'cPSQ' data frame
+Fm_paired <- ggplot(data = cPSQ, mapping = aes(x = Treatment, y = FmPrime, fill = Treatment)) +
+
+  # Add a line plot with grouping by 'Accession', with some transparency (alpha = 0.1)
+  geom_line(mapping = aes(group = Accession), alpha = 0.1, position = position_dodge(0.1)) +
+
+  # Add a violin plot overlaid with individual data points (dots)
+  geom_violindot(dots_size = 0.08, position_dots = position_dodge(0.1), flip = c(1)) +
+
+  # Add individual data points (as filled circles)
+  geom_point(mapping = aes(fill = Treatment, group = Accession), size = 1.5, shape = 21, position = position_dodge(0.1)) +
+
+  # Add statistical comparison annotations (p-values) between treatment groups using ANOVA
+  stat_compare_means(aes(group = Treatment), label = "p.signif", method = "aov", hide.ns = TRUE) +
+
+  # Set the plot theme to a white background
+  theme_bw() +
+
+  # Set custom fill colors for the 'Treatment' variable
+  scale_fill_manual(values = custom_colors) +
+
+  # Remove the legend
+  theme(legend.position = "none") +
+
+  # Label the y-axis and remove the x-axis label
+  ylab("FmPrime") +
+  xlab("")
+
+Fm_paired
+```
+
+
+```{r }
+#Fo Prime_Paired
+
+# Define custom colors for the plot
+custom_colors <- c("lightskyblue3", "gray59")
+
+# Create a ggplot2 plot for FoPrime data in 'cPSQ' data frame
+FoPrime_plot_paired <- ggplot(data = cPSQ, mapping = aes(x = Treatment, y = FoPrime, fill = Treatment)) +
+
+  # Add a line plot with grouping by 'Accession', with some transparency (alpha = 0.1)
+  geom_line(mapping = aes(group = Accession), alpha = 0.1, position = position_dodge(0.1)) +
+
+  # Add a violin plot overlaid with individual data points (dots)
+  geom_violindot(dots_size = 0.08, position_dots = position_dodge(0.1), flip = c(1)) +
+
+  # Add individual data points (as filled circles)
+  geom_point(mapping = aes(fill = Treatment, group = Accession), size = 1.5, shape = 21, position = position_dodge(0.1)) +
+
+  # Add statistical comparison annotations (p-values) between treatment groups using ANOVA
+  stat_compare_means(aes(group = Treatment), label = "p.signif", method = "aov", hide.ns = TRUE) +
+
+  # Set the plot theme to a white background
+  theme_bw() +
+
+  # Set custom fill colors for the 'Treatment' variable
+  scale_fill_manual(values = custom_colors) +
+
+  # Remove the legend
+  theme(legend.position = "none") +
+
+  # Label the y-axis and remove the x-axis label
+  ylab("FoPrime") +
+  xlab("")
+
+FoPrime_plot_paired
+```
+
+
+```{r }
+#Fs_paired
+
+custom_colors <- c("lightskyblue3", "gray59") # Replace with your desired colors
+Fs_plot_paired <- ggplot(data = cPSQ, mapping = aes(x = Treatment, y = Fs, fill = Treatment)) +
+  geom_line(mapping = aes(group = Accession), alpha = 0.1, position = position_dodge(0.1)) +
+  geom_violindot(dots_size = 0.08, position_dots = position_dodge(0.1), flip = c(1)) +
+  geom_point(mapping = aes(fill = Treatment, group = Accession), size = 1.5, shape = 21, position = position_dodge(0.1)) +
+  stat_compare_means(aes(group = Treatment), label = "p.signif", method = "aov", hide.ns = T) +
+  theme_bw() +
+  scale_fill_manual(values = custom_colors) + # Set custom colors
+  theme(legend.position = "none") +
+  ylab("Fs") +
+  xlab("")
+
+
+Fs_plot_paired
+```
+
+
+```{r }
+#Fvp over Fmp paired
+
+FvP.over.FmP_paired_negative_rm <- cPSQ %>% filter(FvP >= 0)
+custom_colors <- c("lightskyblue3", "gray59") # Replace with your desired colors
+FvP.over.FmP_paired <- ggplot(data = FvP.over.FmP_paired_negative_rm, mapping = aes(x = Treatment, y = FvP, fill = Treatment)) +
+  geom_line(mapping = aes(group = Accession), alpha = 0.1, position = position_dodge(0.1)) +
+  geom_violindot(dots_size = 0.08, position_dots = position_dodge(0.1), flip = c(1)) +
+  geom_point(mapping = aes(fill = Treatment, group = Accession), size = 1.5, shape = 21, position = position_dodge(0.1)) +
+  stat_compare_means(aes(group = Treatment), label = "p.signif", method = "aov", hide.ns = T) +
+  theme_bw() +
+  scale_fill_manual(values = custom_colors) + # Set custom colors
+  theme(legend.position = "none") +
+  ylab("FvP.over.FmP") +
+  xlab("")
+
+FvP.over.FmP_paired
+```
+
+```{r}
+#Leaf.temp_paired
+
+custom_colors <- c("lightskyblue3", "gray59")
+
+Leaf.Temperature_paired <- ggplot(data = cPSQ, mapping = aes(x = Treatment, y = LeafTemperature, fill = Treatment)) +
+  geom_line(mapping = aes(group = Accession), alpha = 0.1, position = position_dodge(0.1)) +
+  geom_violindot(dots_size = 0.08, position_dots = position_dodge(0.1), flip = c(1)) +
+  geom_point(mapping = aes(fill = Treatment, group = Accession), size = 1.5, shape = 21, position = position_dodge(0.1)) +
+  stat_compare_means(aes(group = Treatment), label = "p.signif", method = "aov", hide.ns = T) +
+  theme_bw() +
+  scale_fill_manual(values = custom_colors) +
+  theme(
+    legend.position = "none",
+    panel.background = element_rect(fill = "transparent"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.border = element_rect(color = "black", fill = NA),
+    axis.line = element_line(color = "black")
+  ) +
+  ylab(expression(paste("Leaf Temperature (", degree, "C)"))) +
+  xlab("")
+
+
+Leaf.Temperature_paired
+```
+
+```{r}
+custom_colors <- c("lightskyblue3", "gray59") # Replace with your desired colors
+
+Leaf.Temperature_paired <- ggplot(data = cPSQ, mapping = aes(x = Treatment, y = LeafTemperature, fill = Treatment)) +
+  geom_boxplot() +
+  geom_jitter(width = 0.2, color = "tan") +
+  stat_compare_means(aes(group = Treatment), label = "p.signif", method = "aov", hide.ns = T) +
+  scale_fill_manual(values = custom_colors) +
+  theme(
+    legend.position = "none",
+    panel.background = element_rect(fill = "transparent"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.border = element_rect(color = "black", fill = NA),
+    axis.line = element_line(color = "black")
+  ) +
+  ylab(expression(paste("Leaf Temperature (", degree, "C)"))) +
+  xlab("")
+
+Leaf.Temperature_paired
+```
+```{r}
+leaf_thick_plot <- ggerrorplot(cPSQ,
+  y = "Leafthickness", x = "Treatment", fill = "Treatment", color = "Treatment",
+  desc_stat = "mean_sd", add = "jitter", facet.by = "day",
+  add.params = list(color = "darkgray"),
+  xlab = "Treatment", ylab = "leaf thickness"
+)
+leaf_thick_plot <- leaf_thick_plot + rremove("legend") + stat_compare_means(
+  method = "t.test", ref.group = "Control",
+  label = "p.signif", hide.ns = T
+)
+leaf_thick_plot <- leaf_thick_plot + scale_color_jco()
+leaf_thick_plot
+```
+
+
+```{r }
+# Leaf.thickness_paired
+
+custom_colors <- c("lightskyblue3", "gray59")
+
+leaf.thickness_paired <- ggplot(data = cPSQ, mapping = aes(x = Treatment, y = Leafthickness, fill = Treatment)) +
+  geom_line(mapping = aes(group = Accession), alpha = 0.1, position = position_dodge(0.1)) +
+  geom_violindot(dots_size = 0.08, position_dots = position_dodge(0.1), flip = c(1)) +
+  geom_point(mapping = aes(fill = Treatment, group = Accession), size = 1.5, shape = 21, position = position_dodge(0.1)) +
+  stat_compare_means(aes(group = Treatment), label = "p.signif", method = "aov", hide.ns = T) +
+  theme_bw() +
+  scale_fill_manual(values = custom_colors) +
+  theme(
+    legend.position = "none",
+    panel.background = element_rect(fill = "transparent"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.border = element_rect(color = "black", fill = NA),
+    axis.line = element_line(color = "black")
+  ) +
+  ylab(expression(paste("Leaf thickness (µm)"))) +
+  xlab("")
+leaf.thickness_paired
+```
+
+
+
+```{r }
+#NPQt
+
+NPQt_paired_paired_negative_rm <- cPSQ %>% filter(NPQt >= 0)
+custom_colors <- c("lightskyblue3", "gray59") # Replace with your desired colors
+NPQt_paired <- ggplot(data = NPQt_paired_paired_negative_rm, mapping = aes(x = Treatment, y = NPQt, fill = Treatment)) +
+  geom_line(mapping = aes(group = Accession), alpha = 0.1, position = position_dodge(0.1)) +
+  geom_violindot(dots_size = 0.08, position_dots = position_dodge(0.1), flip = c(1)) +
+  geom_point(mapping = aes(fill = Treatment, group = Accession), size = 1.5, shape = 21, position = position_dodge(0.1)) +
+  stat_compare_means(aes(group = Treatment), label = "p.signif", method = "aov", hide.ns = T) +
+  theme_bw() +
+  scale_fill_manual(values = custom_colors) + # Set custom colors
+  theme(legend.position = "none") +
+  ylab("NPQt") +
+  xlab("")
+
+
+NPQt_paired
+```
+
+```{r }
+#Phi2
+
+custom_colors <- c("lightskyblue3", "gray59") # Replace with your desired colors
+Phi2_paired <- ggplot(data = cPSQ, mapping = aes(x = Treatment, y = Phi2, fill = Treatment)) +
+  geom_line(mapping = aes(group = Accession), alpha = 0.1, position = position_dodge(0.1)) +
+  geom_violindot(dots_size = 0.08, position_dots = position_dodge(0.1), flip = c(1)) +
+  geom_point(mapping = aes(fill = Treatment, group = Accession), size = 1.5, shape = 21, position = position_dodge(0.1)) +
+  stat_compare_means(aes(group = Treatment), label = "p.signif", method = "aov", hide.ns = T) +
+  theme_bw() +
+  scale_fill_manual(values = custom_colors) + # Set custom colors
+  theme(legend.position = "none") +
+  ylab("Phi2") +
+  xlab("")
+
+
+Phi2_paired
+```
+
+```{r}
+#PhiNO
+
+PhiNO_paired_paired_negative_rm <- cPSQ %>% filter(PhiNO >= 0)
+custom_colors <- c("lightskyblue3", "gray59") # Replace with your desired colors
+PhiNO_paired <- ggplot(data = PhiNO_paired_paired_negative_rm, mapping = aes(x = Treatment, y = PhiNO, fill = Treatment)) +
+  geom_line(mapping = aes(group = Accession), alpha = 0.1, position = position_dodge(0.1)) +
+  geom_violindot(dots_size = 0.08, position_dots = position_dodge(0.1), flip = c(1)) +
+  geom_point(mapping = aes(fill = Treatment, group = Accession), size = 1.5, shape = 21, position = position_dodge(0.1)) +
+  stat_compare_means(aes(group = Treatment), label = "p.signif", method = "aov", hide.ns = T) +
+  theme_bw() +
+  scale_fill_manual(values = custom_colors) + # Set custom colors
+  theme(legend.position = "none") +
+  ylab("PhiNO") +
+  xlab("")
+
+
+PhiNO_paired
+```
+
+```{r }
+#PhiNPQ
+
+custom_colors <- c("lightskyblue3", "gray59") # Replace with your desired colors
+PhiNPQ_paired <- ggplot(data = cPSQ, mapping = aes(x = Treatment, y = PhiNPQ, fill = Treatment)) +
+  geom_line(mapping = aes(group = Accession), alpha = 0.1, position = position_dodge(0.1)) +
+  geom_violindot(dots_size = 0.08, position_dots = position_dodge(0.1), flip = c(1)) +
+  geom_point(mapping = aes(fill = Treatment, group = Accession), size = 1.5, shape = 21, position = position_dodge(0.1)) +
+  stat_compare_means(aes(group = Treatment), label = "p.signif", method = "aov", hide.ns = T) +
+  theme_bw() +
+  scale_fill_manual(values = custom_colors) + # Set custom colors
+  theme(legend.position = "none") +
+  ylab("PhiNPQ") +
+  xlab("")
+
+
+PhiNPQ_paired
+```
+
+```{r }
+#PS1.Active.Centers
+
+PS1.Active.Centers_paired_negative_rm <- cPSQ %>% filter(PS1ActiveCenters >= 0)
+custom_colors <- c("lightskyblue3", "gray59") # Replace with your desired colors
+PS1.Active.Centers_paired <- ggplot(data = PS1.Active.Centers_paired_negative_rm, mapping = aes(x = Treatment, y = PS1ActiveCenters, fill = Treatment)) +
+  geom_line(mapping = aes(group = Accession), alpha = 0.1, position = position_dodge(0.1)) +
+  geom_violindot(dots_size = 0.08, position_dots = position_dodge(0.1), flip = c(1)) +
+  geom_point(mapping = aes(fill = Treatment, group = Accession), size = 1.5, shape = 21, position = position_dodge(0.1)) +
+  stat_compare_means(aes(group = Treatment), label = "p.signif", method = "aov", hide.ns = T) +
+  theme_bw() +
+  scale_fill_manual(values = custom_colors) + # Set custom colors
+  theme(legend.position = "none") +
+  ylab("PS1.Active.Centers") +
+  xlab("")
+
+
+PS1.Active.Centers_paired
+```
+
+```{r }
+#PS1.Open.Centers
+
+PS1.Open.Centers_paired_negative_rm <- cPSQ %>% filter(PS1OpenCenters >= 0)
+custom_colors <- c("lightskyblue3", "gray59") # Replace with your desired colors
+PS1.Open.Centers_paired <- ggplot(data = PS1.Open.Centers_paired_negative_rm, mapping = aes(x = Treatment, y = PS1OpenCenters, fill = Treatment)) +
+  geom_line(mapping = aes(group = Accession), alpha = 0.1, position = position_dodge(0.1)) +
+  geom_violindot(dots_size = 0.08, position_dots = position_dodge(0.1), flip = c(1)) +
+  geom_point(mapping = aes(fill = Treatment, group = Accession), size = 1.5, shape = 21, position = position_dodge(0.1)) +
+  stat_compare_means(aes(group = Treatment), label = "p.signif", method = "aov", hide.ns = T) +
+  theme_bw() +
+  scale_fill_manual(values = custom_colors) + # Set custom colors
+  theme(legend.position = "none") +
+  ylab("PS1.Open.Centers") +
+  xlab("")
+
+
+PS1.Open.Centers_paired
+```
+
+```{r }
+# PS1.Over.Reduced.Centers
+
+PS1.Over.Reduced.Centers_paired_negative_rm <- cPSQ %>% filter(PS1OverReducedCenters >= 0)
+custom_colors <- c("lightskyblue3", "gray59") # Replace with your desired colors
+PS1.Over.Reduced.Centers_paired <- ggplot(data = PS1.Over.Reduced.Centers_paired_negative_rm, mapping = aes(x = Treatment, y = PS1OverReducedCenters, fill = Treatment)) +
+  geom_line(mapping = aes(group = Accession), alpha = 0.1, position = position_dodge(0.1)) +
+  geom_violindot(dots_size = 0.08, position_dots = position_dodge(0.1), flip = c(1)) +
+  geom_point(mapping = aes(fill = Treatment, group = Accession), size = 1.5, shape = 21, position = position_dodge(0.1)) +
+  stat_compare_means(aes(group = Treatment), label = "p.signif", method = "aov", hide.ns = T) +
+  theme_bw() +
+  scale_fill_manual(values = custom_colors) + # Set custom colors
+  theme(legend.position = "none") +
+  ylab("PS1.Over.Reduced.Centers") +
+  xlab("")
+
+
+PS1.Over.Reduced.Centers_paired
+```
+
+
+```{r }
+# PS1.Oxidized.Centers
+PS1.Oxidized.Centers_paired_negative_rm <- cPSQ %>% filter(PS1OxidizedCenters >= 0)
+custom_colors <- c("lightskyblue3", "gray59") # Replace with your desired colors
+PS1.Oxidized.Centers_paired <- ggplot(data = PS1.Oxidized.Centers_paired_negative_rm, mapping = aes(x = Treatment, y = PS1OxidizedCenters, fill = Treatment)) +
+  geom_line(mapping = aes(group = Accession), alpha = 0.1, position = position_dodge(0.1)) +
+  geom_violindot(dots_size = 0.08, position_dots = position_dodge(0.1), flip = c(1)) +
+  geom_point(mapping = aes(fill = Treatment, group = Accession), size = 1.5, shape = 21, position = position_dodge(0.1)) +
+  stat_compare_means(aes(group = Treatment), label = "p.signif", method = "aov", hide.ns = T) +
+  theme_bw() +
+  scale_fill_manual(values = custom_colors) + # Set custom colors
+  theme(legend.position = "none") +
+  ylab("PS1.Oxidized.Centers") +
+  xlab("")
+
+
+PS1.Oxidized.Centers_paired
+```
+
+```{r}
+#SPAD
+custom_colors <- c("lightskyblue3", "gray59") # Replace with your desired colors
+SPAD_paired <- ggplot(data = cPSQ, mapping = aes(x = Treatment, y = SPAD, fill = Treatment)) +
+  geom_line(mapping = aes(group = Accession), alpha = 0.1, position = position_dodge(0.1)) +
+  geom_violindot(dots_size = 0.08, position_dots = position_dodge(0.1), flip = c(1)) +
+  geom_point(mapping = aes(fill = Treatment, group = Accession), size = 1.5, shape = 21, position = position_dodge(0.1)) +
+  stat_compare_means(aes(group = Treatment), label = "p.signif", method = "aov", hide.ns = T) +
+  theme_bw() +
+  scale_fill_manual(values = custom_colors) + # Set custom colors
+  theme(legend.position = "none") +
+  ylab("SPAD") +
+  xlab("")
+
+
+SPAD_paired
+```
+
+```{r }
+#F0
+# cPSQ <- cPSQ %>% na.omit()
+Fo_plot <- ggerrorplot(cPSQ,
+  y = "FoPrime", x = "Treatment", fill = "Treatment", color = "Treatment",
+  desc_stat = "mean_sd", add = "jitter", facet.by = "day",
+  add.params = list(color = "darkgray"),
+  xlab = "Treatment", ylab = "Fo'"
+)
+Fo_plot <- Fo_plot + rremove("legend") + stat_compare_means(
+  method = "t.test", ref.group = "Control",
+  label = "p.signif", hide.ns = T
+)
+Fo_plot <- Fo_plot + scale_color_jco()
+Fo_plot
+```
+
+
+```{r }
+#Fvp.0ver.FmP
+## Ex5_TDP_202_C_PQ FvP removed as it has -2 value
+# cPSQ <- cPSQ %>% na.omit()
+QY_plot<- cPSQ %>% filter(FvP >= 0)
+QY_plot <- ggerrorplot(QY_plot,
+  y = "FvP", x = "Treatment", fill = "Treatment", color = "Treatment",
+  desc_stat = "mean_sd", add = "jitter", facet.by = "day",
+  add.params = list(color = "darkgray"),
+  xlab = "Treatment", ylab = "Quantum Yield (Fv' / Fm')"
+)
+QY_plot <- QY_plot + rremove("legend") + stat_compare_means(
+  method = "t.test", ref.group = "Control",
+  label = "p.signif", hide.ns = T
+)
+QY_plot <- QY_plot + scale_color_nejm()
+QY_plot
+```
+
+```{r Leaf thickness}
+# cPSQ <- cPSQ %>% na.omit()
+leaf_thick_plot <- ggerrorplot(cPSQ,
+  y = "Leafthickness", x = "Treatment", fill = "Treatment", color = "Treatment",
+  desc_stat = "mean_sd", add = "jitter", facet.by = "day",
+  add.params = list(color = "darkgray"),
+  xlab = "Treatment", ylab = "leaf thickness"
+)
+leaf_thick_plot <- leaf_thick_plot + rremove("legend") + stat_compare_means(
+  method = "t.test", ref.group = "Control",
+  label = "p.signif", hide.ns = T
+)
+leaf_thick_plot <- leaf_thick_plot + scale_color_jco()
+leaf_thick_plot
+```
+
+
+```{r SPAD}
+# cPSQ <- cPSQ %>% na.omit()
+SPAD_plot <- ggerrorplot(cPSQ,
+  y = "SPAD", x = "Treatment", fill = "Treatment", color = "Treatment",
+  desc_stat = "mean_sd", add = "jitter", facet.by = "day",
+  add.params = list(color = "darkgray"),
+  xlab = "Treatment", ylab = "SPAD"
+)
+SPAD_plot <- SPAD_plot + rremove("legend") + stat_compare_means(
+  method = "t.test", ref.group = "Control",
+  label = "p.signif", hide.ns = T
+)
+SPAD_plot <- SPAD_plot + scale_color_jco()
+SPAD_plot
+```
+#PS1.Open.Centers
+
+```{r }
+
+# cPSQ <- cPSQ %>% na.omit()
+PS1.Open.Centers_plot <- cPSQ %>% filter(PS1OpenCenters >= 0)
+PS1.Open.Centers_plot <- ggerrorplot(PS1.Open.Centers_plot,
+  y = "PS1OpenCenters", x = "Treatment", fill = "Treatment", color = "Treatment",
+  desc_stat = "mean_sd", add = "jitter", facet.by = "day",
+  add.params = list(color = "darkgray"),
+  xlab = "Treatment", ylab = "PS1.Open.Centers"
+)
+PS1.Open.Centers_plot <- PS1.Open.Centers_plot + rremove("legend") + stat_compare_means(
+  method = "t.test", ref.group = "Control",
+  label = "p.signif", hide.ns = T
+)
+PS1.Open.Centers_plot <- PS1.Open.Centers_plot + scale_color_jco()
+PS1.Open.Centers_plot
+```
+
+
+```{r }
+#PS1.Active.Centers
+# cPSQ <- cPSQ %>% na.omit()
+PS1.Active.Centers_plot<- cPSQ %>% filter(PS1ActiveCenters >= 0)
+PS1.Active.Centers_plot <- ggerrorplot(PS1.Active.Centers_plot,
+  y = "PS1ActiveCenters", x = "Treatment", fill = "Treatment", color = "Treatment",
+  desc_stat = "mean_sd", add = "jitter", facet.by = "day",
+  add.params = list(color = "darkgray"),
+  xlab = "Treatment", ylab = "PS1.Active.Centers"
+)
+PS1.Active.Centers_plot <- PS1.Active.Centers_plot + rremove("legend") + stat_compare_means(
+  method = "t.test", ref.group = "Control",
+  label = "p.signif", hide.ns = T
+)
+PS1.Active.Centers_plot <- PS1.Active.Centers_plot + scale_color_jco()
+PS1.Active.Centers_plot
+```
+
+
+```{r }
+#NPQt
+# cPSQ <- cPSQ %>% na.omit()
+NPQt_plot <- cPSQ %>% filter(NPQt >= 0)
+NPQt_plot <- ggerrorplot(NPQt_plot,
+  y = "NPQt", x = "Treatment", fill = "Treatment", color = "Treatment",
+  desc_stat = "mean_sd", add = "jitter", facet.by = "day",
+  add.params = list(color = "darkgray"),
+  xlab = "Treatment", ylab = "NPQt"
+)
+NPQt_plot <- NPQt_plot + rremove("legend") + stat_compare_means(
+  method = "t.test", ref.group = "Control",
+  label = "p.signif", hide.ns = T
+)
+NPQt_plot <- NPQt_plot + scale_color_jco()
+NPQt_plot
+```
+
+
+```{r }
+#PhiNPQ
+# cPSQ <- cPSQ %>% na.omit()
+PhiNPQ_plot <- ggerrorplot(cPSQ,
+  y = "PhiNPQ", x = "Treatment", fill = "Treatment", color = "Treatment",
+  desc_stat = "mean_sd", add = "jitter", facet.by = "day",
+  add.params = list(color = "darkgray"),
+  xlab = "Treatment", ylab = "PhiNPQ"
+)
+PhiNPQ_plot <- PhiNPQ_plot + rremove("legend") + stat_compare_means(
+  method = "t.test", ref.group = "Control",
+  label = "p.signif", hide.ns = T
+)
+PhiNPQ_plot <- PhiNPQ_plot + scale_color_jco()
+PhiNPQ_plot
+```
+
+
+```{r }
+#leaf_temp
+# cPSQ <- cPSQ %>% na.omit()
+leaf_temp_plot <- ggerrorplot(cPSQ,
+  y = "LeafTemperature", x = "Treatment", fill = "Treatment", color = "Treatment",
+  desc_stat = "mean_sd", add = "jitter", facet.by = "day",
+  add.params = list(color = "darkgray"),
+  xlab = "Treatment", ylab = "leaf temperature (C)"
+)
+leaf_temp_plot <- leaf_temp_plot + rremove("legend") + stat_compare_means(
+  method = "t.test", ref.group = "Control",
+  label = "p.signif", hide.ns = T
+)
+leaf_temp_plot <- leaf_temp_plot + scale_color_jco()
+leaf_temp_plot
+```
+
+
+```{r Extracting Accession specific values}
+curated_data %>%
+  group_by(Accession, Treatment) %>%
+  tally()
+```
+
+
+```{r}
+# Convert day13_PS1OpenCenters to numeric
+curated_data_PSQ_all$day13_PS1OpenCenters <- as.numeric(curated_data_PSQ_all$day13_PS1OpenCenters)
+
+# Convert day13_PS1OverReducedCenters to numeric
+curated_data_PSQ_all$day13_PS1OverReducedCenters <- as.numeric(curated_data_PSQ_all$day13_PS1OverReducedCenters)
+
+# Convert day13_PS1OxidizedCenters to numeric
+curated_data_PSQ_all$day13_PS1OxidizedCenters <- as.numeric(curated_data_PSQ_all$day13_PS1OxidizedCenters)
+```
+
+
+```{r}
+# List of variables to summarize
+variables_to_summarize <- c(
+  "GR", "FW", "DW", "WC", "Area.SUM_day0", "Area.SUM_day1", "Area.SUM_day2",
+  "Area.SUM_day3", "Area.SUM_day4", "Area.SUM_day5", "Area.SUM_day6", "Area.SUM_day7",
+  "Area.SUM_day8", "Area.SUM_day9", "Area.SUM_day10", "Area.SUM_day11", "Area.SUM_day12",
+  "Area.SUM_day13", "Area.SUM_day14", "day6_FmPrime", "day6_FoPrime", "day6_FvP",
+  "day6_LeafTemperature", "day6_Leafthickness", "day6_NPQt", "day6_PhiNPQ",
+  "day6_PS1ActiveCenters", "day6_PS1OpenCenters", "day6_SPAD", "day13_FmPrime",
+  "day13_FoPrime", "day13_FvP", "day13_LeafTemperature", "day13_Leafthickness",
+  "day13_NPQt", "day13_PhiNPQ", "day13_PS1ActiveCenters", "day13_PS1OpenCenters",
+  "day13_SPAD", "EVT_day1", "EVT_day2", "EVT_day3", "EVT_day4", "EVT_day5", "EVT_day6",
+  "EVT_day7", "EVT_day8", "EVT_day9", "EVT_day10", "EVT_day11", "EVT_day12", "EVT_day13",
+  "EVT_day14", "EVT.sum", "EVT.med"
+)
+
+# Create the formula using paste()
+formula <- paste(variables_to_summarize, collapse = " + ")
+formula <- as.formula(paste(formula, "~ Treatment + Accession"))
+
+# Use summaryBy with the formula
+curated_sum <- summaryBy(formula, data = curated_data_PSQ_all)
+curated_sum
+```
+
+
+```{r}
+write.csv(curated_sum, "curated_mean.csv")
+```
+
+
+```{r}
+# just add this one trait - that might be interesting to look at:
+curated_sum$EVT.p.FW.mean <- curated_sum$EVT.sum.mean / curated_sum$FW.mean
+
+# Prep data
+Control_sum <- subset(curated_sum, curated_sum$Treatment == "Control")
+Drought_sum <- subset(curated_sum, curated_sum$Treatment == "Drought")
+dim(Control_sum)
+```
+
+
+```{r}
+dim(Drought_sum)
+```
+
+
+```{r}
+# Rename columns in 'Control_sum' by replacing ".mean" with ".Cntrl"
+colnames(Control_sum) <- gsub(".mean", ".Cntrl", colnames(Control_sum))
+
+# Rename columns in 'Drought_sum' by replacing ".mean" with ".Drght"
+colnames(Drought_sum) <- gsub(".mean", ".Drght", colnames(Drought_sum))
+
+# Select columns 2 to 58 in 'Control_sum'
+Control_sum <- Control_sum[, c(2:58)]
+
+# Select columns 2 to 58 in 'Drought_sum'
+Drought_sum <- Drought_sum[, c(2:58)]
+
+# Merge 'Control_sum' and 'Drought_sum' data frames by the 'Accession' column, including all rows
+all_sum <- merge(Control_sum, Drought_sum, by = "Accession", all = TRUE)
+
+head(all_sum)
+```
+
+
+```{r}
+dim(all_sum)
+```
+
+
+
+```{r Write file for GWAS}
+write.csv(all_sum, "TeparyBean.GWASready.csv", row.names = FALSE)
+```
+
+
+################################################################# Correlation between traits ################################################################
+
+```{r Load Correlationplot}
+require(ggcorrplot)
+```
+
+
+```{r}
+# Select columns 2 to 57 in 'Drought_sum' and assign the result to 'Drght'
+Drght <- Drought_sum[, 2:57]
+
+# Remove rows with missing values (NA) from the 'Drght' data frame
+Drght <- na.omit(Drght)
+
+# Calculate the correlation matrix for the 'Drght' data frame
+corr2 <- cor(Drght)
+
+# Display the first six rows and first six columns of the correlation matrix 'corr2'
+head(corr2[, 1:6])
+```
+
+
+```{r}
+p.mat2 <- cor_pmat(Drght)
+head(p.mat2[, 1:5])
+```
+
+
+```{r}
+write.csv(Drght, "Drght.csv")
+```
+
+
+```{r}
+# Create a correlation plot using ggcorrplot
+Correlation_plot_Drought <- ggcorrplot(
+  corr2, # Correlation matrix to plot
+  p.mat = p.mat2, # Optional p-values matrix for significance indicators
+  type = "upper", # Type of plot (upper triangle)
+  outline.col = "white", # Color of the outline around the plot
+  colors = c("#6D9EC1", "white", "#E46726"), # Color scale for correlations
+  ggtheme = ggplot2::theme_gray, # Set the plot theme to ggplot2's gray theme
+  insig = "blank" # Display non-significant correlations as blank cells
+)
+
+Correlation_plot_Drought
+```
+
+
+```{r}
+# Check if the column names in 'p.mat2' are present in the column names of 'corr2'
+# Returns a logical vector where each element indicates whether a column name in 'p.mat2' is found in 'corr2'
+column_names_match <- colnames(p.mat2) %in% colnames(corr2)
+```
+
+
+```{r}
+# Check if the row names (row identifiers) in 'p.mat2' are present in the row names of 'corr2'
+# Returns a logical vector where each element indicates whether a row name in 'p.mat2' is found in 'corr2'
+row_names_match <- rownames(p.mat2) %in% rownames(corr2)
+```
+
+
+```{r}
+# Open a PDF device with a specified filename, width, and height
+pdf("Fig.TeparyBean.Correlation_plot_Drought_all_traits.pdf", width = 13, height = 13)
+
+plot(Correlation_plot_Drought)
+
+# Close the PDF device to save the plot as a PDF file
+dev.off()
+```
+
+
+```{r}
+# Create a new data frame 'cntrl_raw' by removing rows with missing values from 'Control_sum'
+cntrl_raw <- Control_sum %>% na.omit()
+
+# Select columns 2 to 57 from 'cntrl_raw' and assign the result to 'Cntrl_final'
+Cntrl_final <- cntrl_raw[, 2:57]
+
+# Calculate the correlation matrix for 'Cntrl_final'
+corr <- cor(Cntrl_final)
+
+head(corr[, 1:6])
+```
+
+
+```{r}
+write.csv(Cntrl_final, "Cntrl_final.csv")
+```
+
+
+
+```{r}
+# Calculate the p-values for the correlation matrix of 'Cntrl_final'
+p.mat <- cor_pmat(Cntrl_final)
+
+# Displays the first six rows and the first four columns of the p-values matrix 'p.mat'
+head(p.mat[, 1:4])
+```
+
+
+```{r}
+# Create a correlation plot using ggcorrplot
+Correlation_plot_Control <- ggcorrplot(
+  corr, # Correlation matrix to plot
+  type = "lower", # Type of plot (lower triangle)
+  outline.col = "white", # Color of the outline around the plot
+  colors = c("#6D9EC1", "white", "#E46726"), # Color scale for correlations
+  p.mat = p.mat, # Provide the p-values matrix for significance indicators
+  ggtheme = ggplot2::theme_gray, # Set the plot theme to ggplot2's gray theme
+  insig = "blank" # Display non-significant correlations as blank cells
+)
+
+Correlation_plot_Control
+```
+
+
+```{r Correlation plot for Control and Drought}
+# Merge the 'Control_sum' and 'Drought_sum' data frames by the "Accession" column, including only rows with matching Accession values
+all_traits_merged <- merge(Control_sum, Drought_sum, by = "Accession", all = FALSE)
+
+# Select the columns 'FW.Cntrl' and 'FW.Drght' from the merged data frame
+fw_select <- select(all_traits_merged, FW.Cntrl, FW.Drght)
+```
+
+
+```{r}
+# Remove rows with missing values (NA) from 'fw_select' data frame
+fw_select <- fw_select %>% na.omit()
+
+# Calculate the correlation matrix for 'fw_select'
+corr_fw <- cor(fw_select)
+
+# Displays the first two rows and the first two columns of the correlation matrix 'corr_fw'
+head(corr_fw[, 1:2])
+```
+
+
+```{r}
+# Calculate the p-values for the correlation matrix of 'fw_select'
+p.mat <- cor_pmat(fw_select)
+
+# Displays the first two rows and the first two columns of the p-values matrix 'p.mat'
+head(p.mat[, 1:2])
+```
+
+```{r Correlation for selected traits}
+# Select specific columns of interest from the 'all_traits_merged' data frame
+sel_traits_reg <- select(
+  all_traits_merged,
+  GR.Cntrl, GR.Drght, FW.Cntrl, FW.Drght, WC.Cntrl, WC.Drght,
+  day6_FvP.Cntrl, day6_FvP.Drght, day6_LeafTemperature.Cntrl, day6_LeafTemperature.Drght,
+  day13_FvP.Cntrl, day13_FvP.Drght, day13_LeafTemperature.Cntrl, day13_LeafTemperature.Drght,
+  day6_SPAD.Cntrl, day13_SPAD.Cntrl, day6_SPAD.Drght, day13_SPAD.Drght,
+  EVT.sum.Cntrl, EVT.p.FW.Cntrl, EVT.med.Cntrl, EVT.sum.Drght, EVT.p.FW.Drght, EVT.med.Drght
+)
+```
+
+
+```{r Change coloumnames}
+# Define a vector of new column names
+new_colnames <- c(
+  "GR_C", "GR_D", "FW_C", "FW_D", "WC_C", "WC_D",
+  "Day6_FvP_over_FmP_C", "Day6_FvP_over_FmP_D",
+  "Day6_Leaf.Temperature_C", "Day6_Leaf.Temperature_D",
+  "Day13_FvP_over_FmP_C", "Day13_FvP_over_FmP_D",
+  "Day13_Leaf.Temperature_C", "Day13_Leaf.Temperature_D",
+  "Day6_SPAD_C", "Day13_SPAD_C", "Day6_SPAD_D", "Day13_SPAD_D",
+  "EVT.sum_C", "EVT.p.FW_C", "EVT.med_C", "EVT.sum_D", "EVT.p.FW_D", "EVT.med_D"
+)
+
+# Rename the columns of 'sel_traits_reg' using the new column names
+names(sel_traits_reg) <- new_colnames
+```
+
+
+```{r}
+# Load the 'ggcorrplot' library for creating correlation plots
+library(ggcorrplot)
+
+# Select the first 24 columns of 'sel_traits_reg' and store them in 'sel.trait.corr'
+sel.trait.corr <- sel_traits_reg[, 1:24]
+
+# Remove rows with missing values (NA) from 'sel.trait.corr'
+sel.trait.corr <- na.omit(sel.trait.corr)
+
+dim(sel.trait.corr)
+```
+
+
+```{r}
+# Calculate the Pearson correlation matrix for 'sel.trait.corr'
+sel.trait.corr <- cor(sel.trait.corr, method = "pearson")
+
+# Calculate the p-values for the Pearson correlation matrix
+p.mat <- cor_pmat(sel.trait.corr)
+
+# Display the first 24 rows and the first 24 columns of the p-values matrix 'p.mat'
+head(p.mat[, 1:24])
+```
+
+
+```{r}
+# Create a correlation plot using ggcorrplot
+Correlation_plot_sel.trait.corr <- ggcorrplot(
+  sel.trait.corr, # Correlation matrix to plot
+  type = "lower", # Type of plot (lower triangle)
+  outline.col = "white", # Color of the outline around the plot
+  colors = c("deepskyblue4", "white", "red4"), # Color scale for correlations
+  p.mat = p.mat, # Provide the p-values matrix for significance indicators
+  ggtheme = ggplot2::theme_gray, # Set the plot theme to ggplot2's gray theme
+  insig = "blank" # Display non-significant correlations as blank cells
+) +
+  # Adjust the aspect ratio of the plot
+  theme(aspect.ratio = 1) +
+
+  # Customize x-axis text orientation and appearance
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, size = 8)) +
+
+  # Customize y-axis text size and y-axis title size
+  theme(
+    axis.text.y = element_text(size = 8),
+    axis.title.y = element_text(size = 6)
+  ) +
+
+  # Remove y-axis label
+  labs(y = NULL)
+
+Correlation_plot_sel.trait.corr
+```
+
+
+```{r Regression Analysis}
+# Initialize empty matrices for regression statistics
+reg.Adj.Rsq <- matrix(, nrow = 24, ncol = 24) # Matrix for adjusted R-squared values
+reg.Rsq <- matrix(, nrow = 24, ncol = 24) # Matrix for R-squared values
+reg.pval <- matrix(, nrow = 24, ncol = 24) # Matrix for p-values
+reg.RSE <- matrix(, nrow = 24, ncol = 24) # Matrix for residual standard errors
+reg.DF = matrix(, nrow = 24, ncol = 24)   # Matrix for degrees of freedom
+
+# Set column and row names for reg.Rsq matrix based on sel_traits_reg
+colnames(reg.Rsq) <- colnames(sel_traits_reg)
+rownames(reg.Rsq) <- colnames(sel_traits_reg)
+
+# Set column and row names for reg.Adj.Rsq matrix based on sel_traits_reg
+colnames(reg.Adj.Rsq) <- colnames(sel_traits_reg)
+rownames(reg.Adj.Rsq) <- colnames(sel_traits_reg)
+
+# Set column and row names for reg.pval matrix based on sel_traits_reg
+colnames(reg.pval) <- colnames(sel_traits_reg)
+rownames(reg.pval) <- colnames(sel_traits_reg)
+
+# Set column and row names for reg.RSE matrix based on sel_traits_reg
+colnames(reg.RSE) <- colnames(sel_traits_reg)
+rownames(reg.RSE) <- colnames(sel_traits_reg)
+
+# Set column and row names for reg.DF matrix based on sel_traits_reg
+colnames(reg.DF) <- colnames(sel_traits_reg)
+rownames(reg.DF) <- colnames(sel_traits_reg)
+```
+
+
+```{r}
+# I want to explain each trait -- colnames(sel_traits_reg)[1:38] -- by each trait -- colnames(sel_traits_reg)[1:38]
+# Loop through 24 traits as both dependent and independent variables
+for (x in 1:24) {
+  trait.y <- colnames(sel_traits_reg)[x] # Get the name of the dependent variable (trait.y)
+
+  # Nested loop for the independent variable (trait.x)
+  for (y in 1:24) {
+    trait.x <- colnames(sel_traits_reg)[y] # Get the name of the independent variable (trait.x)
+
+    # Perform linear regression and store the results in the matrices
+    reg.Adj.Rsq[y - 1, x - 1] <- summary(lm(paste(trait.y, "~", trait.x), data = sel_traits_reg))$adj.r.squared
+    reg.Rsq[y - 1, x - 1] <- summary(lm(paste(trait.y, "~", trait.x), data = sel_traits_reg))$r.squared
+
+    # Extract p-value for the coefficient of trait.x
+    pval_table <- summary(lm(paste(trait.y, "~", trait.x), data = sel_traits_reg))$coefficients
+    if (dim(pval_table)[1] > 1) {
+      reg.pval[y - 1, x - 1] <- summary(lm(paste(trait.y, "~", trait.x), data = sel_traits_reg))$coefficients[2, 4]
+    } else {
+      reg.pval[y - 1, x - 1] <- "N.A." # Set "N.A." if there's no second coefficient
+    }
+
+    # Store residual standard error
+    reg.RSE[y - 1, x - 1] <- summary(lm(paste(trait.y, "~", trait.x), data = sel_traits_reg))$sigma
+  }
+}
+
+# After running this code snippet the matrices reg.Adj.Rsq, reg.Rsq, reg.pval, and reg.RSE contain regression statistics for all pairs of traits.
+```
+
+
+```{r}
+# Loop through all combinations of traits in the matrices
+for (x in 1:24) {
+  for (y in 1:24) {
+    # Check if reg.pval[x, y] is not missing (NA) and if it's either "N.A." or greater than 0.01
+    if (!is.na(reg.pval[x, y]) && (reg.pval[x, y] == "N.A." || as.numeric(reg.pval[x, y]) > 0.01)) {
+      # If the condition is met (p-value is not significant):
+
+      # Set reg.Adj.Rsq and reg.Rsq at this position to NA
+      reg.Adj.Rsq[x, y] <- NA
+      reg.Rsq[x, y] <- NA
+    } else {
+      # If the condition is not met (p-value is significant):
+
+      # Convert and assign the numeric values from reg.Adj.Rsq and reg.Rsq
+      reg.Adj.Rsq[x, y] <- as.numeric(reg.Adj.Rsq[x, y])
+      reg.Rsq[x, y] <- as.numeric(reg.Rsq[x, y])
+    }
+  }
+}
+```
+
+
+```{r}
+write.csv(reg.Adj.Rsq, "reg.Adj.Rsq.csv")
+write.csv(reg.Rsq, "reg.Rsq.csv")
+write.csv(reg.pval, "reg.pval.csv")
+write.csv(reg.RSE, "reg.RSE.csv")
+```
+
+```{r}
+reg.Adj.Rsq2 <- read.csv("reg.Adj.Rsq.csv")
+head(reg.Adj.Rsq2)
+```
+
+
+```{r}
+# Extract columns 1 and 4 from the reg.Adj.Rsq2 matrix and store the result in fw.C
+fw.C <- reg.Adj.Rsq2[, c(1, 4)]
+
+# Extract columns 1 and 5 from the reg.Adj.Rsq2 matrix and store the result in fw.D
+fw.D <- reg.Adj.Rsq2[, c(1, 5)]
+
+# Remove rows containing NA values from fw.C and fw.D
+fw.C <- na.omit(fw.C)
+fw.D <- na.omit(fw.D)
+
+# Load the ggsci library and pal_aaas function to set a color palette
+library(ggsci)
+pal_aaas("default")(2)
+```
+
+```{r}
+library(cowplot)
+
+# Create a bar plot for fw.C
+reg.plot_FW.C <- ggbarplot(fw.C,
+  x = "X", y = "FW_C", fill = "lightskyblue3",
+  sort.val = "desc", x.text.angle = 90, ylab = "Adjusted R square"
+)
+
+# Create a bar plot for fw.D
+reg.plot_FW.D <- ggbarplot(fw.D,
+  x = "X", y = "FW_D", fill = "gray69",
+  sort.val = "desc", x.text.angle = 90, ylab = "Adjusted R square"
+)
+
+# Arrange the two bar plots in a grid with 2 columns
+reg_FW_regression <- plot_grid(reg.plot_FW.C, reg.plot_FW.D, ncol = 2)
+reg_FW_regression
+```
+
+
+
+```{r}
+colnames(curated_sum)
+```
+
+
+```{r Correlation scatter plots for all traits with FW}
+# Create a scatter plot
+FW_GR <- ggscatter(
+  curated_sum,
+  x = "FW.mean",             # X-axis variable: Shoot fresh weight at 14th day (g)
+  y = "GR.mean",             # Y-axis variable: Growth Rate
+  xlab = "Shoot fresh weight at 14th day (g)",  # X-axis label
+  ylab = "Growth Rate",       # Y-axis label
+  color = "Treatment",       # Color points by the "Treatment" variable
+  rug = TRUE                 # Display rug plots along the axes
+) +
+# Add correlation coefficient and p-value to the plot
+  stat_cor() +
+# Apply a color scale from the NEJM (New England Journal of Medicine) color palette
+  scale_color_nejm()
+FW_GR
+```
+
+#########################################################################################################################
+############################# Correlation plot for Fresh weight control and Fresh weight drought #################
+```{r}
+# Reshaping data to plot FW_c_D. Reshaping data from curated_sum.
+curated_sum_select_Fw <- curated_sum %>% select("Treatment", "Accession", "FW.mean")
+```
+
+
+```{r}
+fw.C <- curated_sum_select_Fw %>% filter(Treatment == "Control")
+fw.D <- curated_sum_select_Fw %>% filter(Treatment == "Drought")
+
+curated_sum_reshape_FW <- merge(fw.C, fw.D, by = "Accession")
+```
+
+```{r}
+FW_from_reshape_Fw <- ggscatter(curated_sum_reshape_FW, x = "FW.mean.x", y = "FW.mean.y", xlab = "FW.C", ylab = "FW.D", rug = TRUE) +
+  stat_cor() +
+  scale_color_nejm()
+FW_from_reshape_Fw
+```
+
+
+
+
+
